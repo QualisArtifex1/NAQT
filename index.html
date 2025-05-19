@@ -54,11 +54,22 @@
             border-color: #2980b9;
         }
 
-        .score-sheet {
-            max-width: 1000px;
-            margin: 0 auto;
-            overflow-x: auto;
-        }
+       .score-sheet {
+  max-width: none;      /* remove the width cap */
+  width: 100%;          /* let it span the container */
+  overflow-x: visible;  /* turn off the inner scrollbar */
+}
+
+table {
+  table-layout: fixed;  /* force even column widths */
+  width: 100%;          /* fill the .score-sheet area */
+}
+
+th, td {
+  padding: 6px;         /* tighten up spacing */
+  font-size: 0.85em;    /* shrink text slightly so more fits */
+}
+
 
         table {
             width: 100%;
@@ -369,17 +380,51 @@
     </div>
 
     <!-- JavaScript -->
-    <script>
-        const tossupCount = 24;
-        const scoreSheetBody = document.getElementById('scoreSheetBody');
-        let currentQuestion = 1;
-        let wholeView = false;
-        let tournamentData = [];
-        let currentRound = 1;
-        let currentRoundIndex = null; // To track the index of the current round
-        let playerNames = { team1: [], team2: [] };
+   <script>
+  const tossupCount = 24;
+  const scoreSheetBody = document.getElementById('scoreSheetBody');
+  let currentQuestion = 1;
+  let wholeView = false;
+  let tournamentData = [];
+  let currentRound = 1;
+  let currentRoundIndex = null; // To track the index of the current round
+      // … your declarations …
+    let playerNames = { team1: [], team2: [] };
 
-        // Generate the initial score sheet
+    // Build the empty sheet right away
+    generateScoreSheet();
+
+    // Show initial question & round
+    document.getElementById('currentQuestionDisplay').innerText = currentQuestion;
+    document.getElementById('currentRoundDisplay').innerText = currentRound;
+
+    // ——————————————
+    // NOW restore from localStorage (table is in place already!)
+    if (localStorage.getItem('tournamentData')) {
+      tournamentData = JSON.parse(localStorage.getItem('tournamentData'));
+      currentRound = parseInt(localStorage.getItem('currentRound'), 10) || 1;
+      const storedIdx = localStorage.getItem('currentRoundIndex');
+      currentRoundIndex = storedIdx !== null
+        ? parseInt(storedIdx, 10)
+        : null;
+      playerNames = JSON.parse(
+        localStorage.getItem('playerNames') ||
+        '{"team1":[],"team2":[]}'
+      );
+
+      updateRoundNavigation();
+      if (currentRoundIndex !== null) {
+        loadRoundData(currentRoundIndex);
+      } else if (tournamentData.length) {
+        document.getElementById('currentRoundDisplay').innerText = currentRound;
+        loadPlayerNames();
+        updateHeaders();
+      }
+    }
+    // ——————————————
+
+     
+   // Generate the initial score sheet
         generateScoreSheet();
 
         // Show the first question
@@ -511,6 +556,7 @@
                 } else if (color === "red") {
                     tossupPoints += negValue;
                 }
+             saveToLocalStorage();
             }
 
             // Calculate bonus points
@@ -592,28 +638,38 @@
         }
 
         // Start a new tournament
-        function startNewTournament() {
-            if (!confirm("Are you sure you want to start a new tournament? All data will be lost.")) return;
-            tournamentData = [];
-            currentRound = 1;
-            currentRoundIndex = null;
-            resetScores();
-            document.getElementById('tournamentName').value = '';
-            document.getElementById('roomNumber').value = '';
-            document.getElementById('team1').value = '';
-            document.getElementById('team2').value = '';
-            playerNames = { team1: [], team2: [] };
-            document.getElementById('currentRoundDisplay').innerText = currentRound;
-            updateRoundNavigation();
-            loadPlayerNames();
-            updateHeaders();
-        }
+           function startNewTournament() {
+      if (!confirm("Are you sure you want to start a new tournament? All data will be lost.")) return;
+      // ——————————————
+      // Clear out persistence
+      localStorage.removeItem('tournamentData');
+      localStorage.removeItem('currentRound');
+      localStorage.removeItem('currentRoundIndex');
+      localStorage.removeItem('playerNames');
+      // ——————————————
+      tournamentData = [];
+      currentRound = 1;
+      currentRoundIndex = null;
+      resetScores();
+      document.getElementById('tournamentName').value = '';
+      document.getElementById('roomNumber').value = '';
+      document.getElementById('team1').value = '';
+      document.getElementById('team2').value = '';
+      playerNames = { team1: [], team2: [] };
+      document.getElementById('currentRoundDisplay').innerText = currentRound;
+      updateRoundNavigation();
+      loadPlayerNames();
+      updateHeaders();
+    }
+
 
         // Finish current round
         function finishRound() {
-            if (!confirm("Are you sure you want to finish this round?")) return;
-            saveCurrentRound();
-            resetScores();
+              if (!confirm("Are you sure you want to finish this round?")) return;
+      saveCurrentRound();
+      // ←—— Persist after each round
+      saveToLocalStorage();
+      resetScores();
             if (currentRoundIndex === null || currentRoundIndex === tournamentData.length - 1) {
                 currentRound++;
             }
@@ -1042,6 +1098,19 @@
         document.getElementById('player2_2_name').addEventListener('input', updateHeaders);
         document.getElementById('player2_3_name').addEventListener('input', updateHeaders);
         document.getElementById('player2_4_name').addEventListener('input', updateHeaders);
+   
+ // Persist the full tournamentData + pointers into localStorage
+    function saveToLocalStorage() {
+      // this will also push the "current" round into tournamentData
+      saveCurrentRound();
+      localStorage.setItem('tournamentData', JSON.stringify(tournamentData));
+      localStorage.setItem('currentRound', currentRound);
+      localStorage.setItem('currentRoundIndex', currentRoundIndex);
+      localStorage.setItem('playerNames', JSON.stringify(playerNames));
+    }
+    
+// Before the user navigates away, stash everything
+    window.addEventListener('beforeunload', saveToLocalStorage);
 
     </script>
 
