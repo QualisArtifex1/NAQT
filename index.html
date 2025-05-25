@@ -206,10 +206,13 @@ th, td {
         <button onclick="showCurrentQuestionView()">Current Question View</button>
     </div>
 
-    <!-- Export Buttons -->
+       <!-- Export Buttons -->
     <div class="tournament-controls">
         <button onclick="exportCurrentRound()">Export Current Round</button>
         <button onclick="exportTournament()">Export Tournament</button>
+        <button onclick="copyTournamentStats()">Copy Tournament Stats</button>
+        <button onclick="copyTournamentNotes()">Copy Tournament Notes</button>
+
     </div>
 
     <!-- Round Navigation -->
@@ -403,24 +406,28 @@ th, td {
     if (localStorage.getItem('tournamentData')) {
       tournamentData = JSON.parse(localStorage.getItem('tournamentData'));
       currentRound = parseInt(localStorage.getItem('currentRound'), 10) || 1;
-      const storedIdx = localStorage.getItem('currentRoundIndex');
-      currentRoundIndex = storedIdx !== null
-        ? parseInt(storedIdx, 10)
-        : null;
+      let storedIdx = localStorage.getItem('currentRoundIndex');
+// if nothing was selected, default to the most-recent round
+ currentRoundIndex = storedIdx !== null
+   ? parseInt(storedIdx, 10)
+   : (tournamentData.length ? tournamentData.length - 1 : null);
       playerNames = JSON.parse(
         localStorage.getItem('playerNames') ||
         '{"team1":[],"team2":[]}'
       );
 
-      updateRoundNavigation();
       if (currentRoundIndex !== null) {
-        loadRoundData(currentRoundIndex);
-      } else if (tournamentData.length) {
-        document.getElementById('currentRoundDisplay').innerText = currentRound;
-        loadPlayerNames();
-        updateHeaders();
-      }
+   loadRoundData(currentRoundIndex);
+ } else {
+   // no rounds yet, just reset scoreboard for round 1
+   document.getElementById('currentRoundDisplay').innerText = currentRound;
+   loadPlayerNames();
+   updateHeaders();
+ }
     }
+// rebuild the round‐selector buttons
+updateRoundNavigation();
+
     // ——————————————
 
      
@@ -663,22 +670,38 @@ th, td {
     }
 
 
-        // Finish current round
-        function finishRound() {
-              if (!confirm("Are you sure you want to finish this round?")) return;
-      saveCurrentRound();
-      // ←—— Persist after each round
-      saveToLocalStorage();
-      resetScores();
-            if (currentRoundIndex === null || currentRoundIndex === tournamentData.length - 1) {
-                currentRound++;
-            }
-            currentRoundIndex = null;
-            document.getElementById('currentRoundDisplay').innerText = currentRound;
-            updateRoundNavigation();
-            loadPlayerNames();
-            updateHeaders();
-        }
+      // Finish current round
+ function finishRound() {
+  if (!confirm("Are you sure you want to finish this round?")) return;
+
+  // 1) Save edits on whichever round you're viewing (old or new)
+  saveCurrentRound();
+  saveToLocalStorage();
+
+  // 2) Jump to the actual latest round before finishing it
+  const lastIdx = tournamentData.length - 1;
+  if (currentRoundIndex !== lastIdx) {
+    loadRoundData(lastIdx);
+  }
+
+  // 3) Save that (now-current) round to capture any last-second note changes
+  saveCurrentRound();
+  saveToLocalStorage();
+
+  // 4) Rebuild the round buttons
+  updateRoundNavigation();
+
+  // 5) Advance to a fresh next round
+  currentRound++;
+  currentRoundIndex = null;    // we're now on a new, empty round
+  document.getElementById('currentRoundDisplay').innerText = currentRound;
+
+  // 6) Clear the board and reload player names/headers
+  resetScores();
+  loadPlayerNames();
+  updateHeaders();
+}
+
 
         // Save current round data
         function saveCurrentRound() {
@@ -883,8 +906,11 @@ th, td {
         }
 
         // Export to printable format
-        function exportToPrintableFormat(dataArray) {
-            let printableContent = '<html><head><title>Tournament Export</title></head><body>';
+       function exportToPrintableFormat(dataArray) {
+    const sep = '\t';
+    let printableContent = '<html><head><title>Tournament Export</title></head><body>';
+    /* … */
+
             printableContent += `<h1>${document.getElementById('tournamentName').value || 'Tournament'} Export</h1>`;
 
             // Initialize tournament summary variables
@@ -963,7 +989,11 @@ th, td {
                     });
 
                     // Team 1 Bonuses
-                    printableContent += `<td>${score.team1.bonuses.map(b => b ? 'Y' : 'N').join(',')}</td>`;
+                     printableContent += `<td>${
+        score.team1.bonuses
+             .map(b => b ? 'Y' : 'N')
+             .join(sep)
+    }</td>`;
                     printableContent += `<td>${score.team1.total}</td>`;
                     printableContent += `<td>${score.team1.cumulative}</td>`;
                     printableContent += `<td>${score.notes || ''}</td>`;
@@ -974,7 +1004,13 @@ th, td {
                     printableContent += `<td>${score.team2.total}</td>`;
 
                     // Team 2 Bonuses
-                    printableContent += `<td>${score.team2.bonuses.map(b => b ? 'Y' : 'N').join(',')}</td>`;
+                       // GOOD
+    printableContent += `<td>${
+        score.team2.bonuses
+             .map(b => b ? 'Y' : 'N')
+             .join(sep)
+    }</td>`;
+
 
                     // Team 2 Player Scores
                     score.team2.players.forEach(value => {
@@ -1109,6 +1145,122 @@ th, td {
       localStorage.setItem('playerNames', JSON.stringify(playerNames));
     }
     
+function copyTournamentStats() {
+  if (!tournamentData.length) {
+    return alert('⚠️ No completed rounds to copy.');
+  }
+
+  const sep    = '\t';
+  const tName  = document.getElementById('tournamentName').value || '';
+  const powerV = +document.getElementById('powerVal').value   || 15;
+  const tossV  = +document.getElementById('tossupVal').value  || 10;
+  const bonusV = +document.getElementById('bonusVal').value   || 10;
+  const negV   = +document.getElementById('negVal').value     || -5;
+
+  // — accumulate team‐1 totals & playerStats —
+  const tot = { powers:0, tossups:0, negs:0, totalPts:0, bonusPts:0 };
+  let playerStats = [];
+
+  const roundsPlayed = tournamentData.length;
+
+  tournamentData.forEach(rd => {
+    // total points for that round
+    const last = rd.scores[ rd.scores.length - 1 ];
+    tot.totalPts += +last.team1.cumulative;
+
+    // team1 playerTotals
+    rd.playerTotals1.forEach(p => {
+      tot.powers   += p.powers;
+      tot.tossups += p.tossups;
+      tot.negs     += p.negs;
+      updatePlayerStats(playerStats, p.name, rd.team1, p.powers, p.tossups, p.negs);
+    });
+
+    // bonus points team1
+    rd.scores.forEach(score => {
+      tot.bonusPts += score.team1.bonuses.filter(b => b).length * bonusV;
+    });
+  });
+
+  // compute stats
+  const teamName       = tournamentData[0].team1;
+  const ppg            = (tot.totalPts   / roundsPlayed).toFixed(2);
+  const ppb            = (tot.bonusPts    / (tot.powers + tot.tossups)).toFixed(2);
+  const powersPerGame  = (tot.powers      / roundsPlayed).toFixed(2);
+
+  // — build TSV —
+  let csv = '';
+
+  // Team1 row with old + new stats:
+  csv += [
+    tName,
+    teamName,
+    tot.powers,
+    tot.tossups,
+    tot.negs,
+    ppg,
+    ppb,
+    powersPerGame
+  ].join(sep) + '\n';
+
+  csv += '\n';
+
+  // Player rows (blank for PPG, PPB & Powers/Game)
+  playerStats
+    .filter(p => p.name.trim() && !/^Player \d+$/.test(p.name))
+    .sort((a, b) => {
+      const aPts = a.powers * powerV + a.tossups * tossV + a.negs * negV;
+      const bPts = b.powers * powerV + b.tossups * tossV + b.negs * negV;
+      return bPts - aPts;
+    })
+    .forEach(p => {
+      csv += [
+        tName,
+        p.name,
+        p.powers,
+        p.tossups,
+        p.negs,
+        '',
+        '',
+        ''
+      ].join(sep) + '\n';
+    });
+
+  // copy to clipboard
+  navigator.clipboard.writeText(csv)
+    .then(() => alert('✅ Team 1 stats copied!'))
+    .catch(() => alert('⚠️ Copy failed.'));
+}
+
+function copyTournamentNotes() {
+  // Make sure we’re working with the latest saved data
+  saveCurrentRound();
+  if (!tournamentData.length) {
+    return alert('⚠️ No tournament data available to copy.');
+  }
+
+  // Gather all non-empty notes
+  const notes = [];
+  tournamentData.forEach(rd => {
+    rd.scores.forEach(score => {
+      const txt = (score.notes || '').trim();
+      if (txt) notes.push(txt.replace(/\r?\n/g, ' '));
+    });
+  });
+
+  if (!notes.length) {
+    return alert('⚠️ No notes to copy.');
+  }
+
+  // Build a single-column TSV: one note per row
+  const csv = notes.join('\n');
+
+  // Copy to clipboard
+  navigator.clipboard.writeText(csv)
+    .then(() => alert('✅ Tournament notes copied!'))
+    .catch(() => alert('⚠️ Notes copy failed.'));
+}
+
 // Before the user navigates away, stash everything
     window.addEventListener('beforeunload', saveToLocalStorage);
 
