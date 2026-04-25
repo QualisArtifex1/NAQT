@@ -1,1270 +1,1989 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>NAQT Score Sheet</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NAQT Scorekeeper Pro</title>
+  <style>
+    :root {
+      --bg-0: #07111f;
+      --bg-1: #0f172a;
+      --bg-2: #111c31;
+      --card: rgba(255,255,255,.96);
+      --card-soft: rgba(255,255,255,.86);
+      --ink: #101827;
+      --muted: #64748b;
+      --line: rgba(148,163,184,.28);
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --team1: #3b82f6;
+      --team1-soft: rgba(59,130,246,.12);
+      --team2: #f59e0b;
+      --team2-soft: rgba(245,158,11,.16);
+      --power: #059669;
+      --tossup: #334155;
+      --neg: #dc2626;
+      --bonus: #d97706;
+      --danger: #dc2626;
+      --good: #16a34a;
+      --shadow: 0 24px 60px rgba(0,0,0,.28);
+      --shadow-soft: 0 14px 34px rgba(15,23,42,.15);
+      --radius-xl: 28px;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-    <!-- Google Fonts -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap">
+    * { box-sizing: border-box; }
 
-    <style>
-        /* Updated styling */
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 20px;
-            background-color: #f9f9f9;
-            color: #333;
-        }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: #e5e7eb;
+      background:
+        radial-gradient(circle at top left, rgba(59,130,246,.28), transparent 34rem),
+        radial-gradient(circle at 90% 4%, rgba(245,158,11,.24), transparent 30rem),
+        linear-gradient(135deg, var(--bg-0), var(--bg-1) 42%, #06111f 100%);
+      overflow-x: hidden;
+    }
 
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
+    body:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .25;
+      background-image:
+        linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(to bottom, black, transparent 92%);
+    }
 
-        .settings, .navigation, .tournament-controls, .round-navigation {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin-bottom: 20px;
-            gap: 15px;
-        }
+    button, input, textarea, select { font: inherit; }
+    button { border: 0; }
 
-        .settings div, .navigation div, .tournament-controls div, .round-navigation div {
-            display: flex;
-            align-items: center;
-        }
+    .app-shell {
+      width: min(1500px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 22px 0 54px;
+      position: relative;
+    }
 
-        .settings label {
-            margin-right: 5px;
-            font-weight: 500;
-        }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
 
-        .team-name-input, .player-name-input, input[type="number"], input[type="text"] {
-            padding: 8px;
-            font-size: 1em;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            transition: border-color 0.3s;
-            width: 200px;
-        }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
-        .team-name-input:focus, .player-name-input:focus, input[type="number"]:focus, input[type="text"]:focus {
-            outline: none;
-            border-color: #2980b9;
-        }
+    .logo {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      color: white;
+      font-weight: 900;
+      letter-spacing: -.08em;
+      background: linear-gradient(135deg, #2563eb, #60a5fa 45%, #f59e0b);
+      box-shadow: 0 14px 34px rgba(37,99,235,.35);
+    }
 
-       .score-sheet {
-  max-width: none;      /* remove the width cap */
-  width: 100%;          /* let it span the container */
-  overflow-x: visible;  /* turn off the inner scrollbar */
-}
+    h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 2vw, 2.2rem);
+      letter-spacing: -.045em;
+      line-height: 1;
+    }
 
-table {
-  table-layout: fixed;  /* force even column widths */
-  width: 100%;          /* fill the .score-sheet area */
-}
+    .subtitle {
+      color: #a8b3c7;
+      margin-top: 6px;
+      font-size: .95rem;
+    }
 
-th, td {
-  padding: 6px;         /* tighten up spacing */
-  font-size: 0.85em;    /* shrink text slightly so more fits */
-}
+    .status-strip {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
 
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      background: rgba(15,23,42,.62);
+      color: #dbeafe;
+      font-size: .9rem;
+      backdrop-filter: blur(12px);
+    }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            background-color: white;
-        }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--good);
+      box-shadow: 0 0 0 4px rgba(22,163,74,.14);
+    }
 
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-        }
+    .scoreboard {
+      overflow: hidden;
+      border-radius: var(--radius-xl);
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.14);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      margin-bottom: 18px;
+    }
 
-        th {
-            background-color: #2c3e50;
-            color: white;
-            font-weight: 500;
-        }
+    .scoreboard-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+    }
 
-        .player-check button {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #ccc;
-            background-color: white;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.3s, transform 0.2s;
-            border-radius: 4px;
-        }
+    .round-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: #cbd5e1;
+      font-weight: 700;
+    }
 
-        .player-check button:hover {
-            transform: translateY(-2px);
-        }
+    .round-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(2,6,23,.32);
+      border: 1px solid rgba(255,255,255,.11);
+    }
 
-        .bonus input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
+    .quick-actions {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
 
-        .notes-box {
-            width: 100%;
-            height: 50px;
-            resize: vertical;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: 'Roboto', sans-serif;
-        }
+    .scoreboard-body {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 18px;
+      align-items: stretch;
+      padding: 20px;
+    }
 
-        .navigation button, .tournament-controls button, .round-navigation button {
-            padding: 10px 20px;
-            margin-top: 10px;
-            background-color: #2980b9;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 1em;
-            border-radius: 5px;
-            transition: background-color 0.3s, transform 0.2s;
-        }
+    .team-score {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+      min-height: 132px;
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(255,255,255,.94);
+      color: var(--ink);
+      box-shadow: 0 20px 44px rgba(0,0,0,.18);
+      overflow: hidden;
+    }
 
-        .navigation button:hover, .tournament-controls button:hover, .round-navigation button:hover {
-            background-color: #3498db;
-            transform: translateY(-2px);
-        }
+    .team-score:before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 7px;
+      background: var(--team1);
+    }
 
-        .navigation button:disabled, .tournament-controls button:disabled, .round-navigation button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
+    .team-score.team-2:before { background: var(--team2); }
 
-        .progress {
-            text-align: center;
-            font-weight: 500;
-            margin-bottom: 10px;
-        }
+    .team-score.leader {
+      outline: 3px solid rgba(34,197,94,.18);
+    }
 
-        .progress span {
-            color: #2980b9;
-        }
+    .team-name {
+      font-size: clamp(1.25rem, 2vw, 2rem);
+      font-weight: 900;
+      letter-spacing: -.04em;
+      margin-bottom: 8px;
+      line-height: 1.05;
+    }
 
-        .hidden {
-            display: none;
-        }
+    .team-detail {
+      color: var(--muted);
+      font-size: .95rem;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
 
-        .divider {
-            border-left: 2px solid #ccc;
-        }
+    .big-score {
+      font-size: clamp(3rem, 7vw, 5.2rem);
+      font-weight: 950;
+      letter-spacing: -.08em;
+      line-height: .9;
+      color: #0f172a;
+    }
 
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .settings, .navigation, .tournament-controls, .round-navigation {
-                flex-direction: column;
-                align-items: stretch;
-            }
+    .vs-block {
+      display: grid;
+      place-items: center;
+      min-width: 90px;
+      color: white;
+    }
 
-            table {
-                font-size: 0.9em;
-            }
+    .vs-circle {
+      width: 78px;
+      height: 78px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(15,23,42,.72);
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 18px 34px rgba(0,0,0,.28);
+      font-weight: 950;
+      letter-spacing: -.05em;
+    }
 
-            .team-name-input, .player-name-input, input[type="number"], input[type="text"] {
-                width: 100%;
-            }
-        }
+    .leadline {
+      grid-column: 1 / -1;
+      margin-top: -2px;
+      text-align: center;
+      color: #dbeafe;
+      font-weight: 800;
+    }
 
-        /* Printer-friendly styles */
-        @media print {
-            .navigation, .tournament-controls, .settings, .round-navigation {
-                display: none;
-            }
-            .hidden {
-                display: table-row !important;
-            }
-        }
-    </style>
+    .panel {
+      border-radius: var(--radius-xl);
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid rgba(255,255,255,.3);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    details.panel > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      font-weight: 900;
+      letter-spacing: -.02em;
+      background: linear-gradient(180deg, #fff, #f8fafc);
+      border-bottom: 1px solid rgba(148,163,184,.24);
+    }
+
+    details.panel > summary::-webkit-details-marker { display: none; }
+    details.panel > summary:after {
+      content: "▾";
+      color: var(--muted);
+      transition: transform .18s ease;
+    }
+    details.panel:not([open]) > summary:after { transform: rotate(-90deg); }
+
+    .panel-body { padding: 18px 20px 20px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .field {
+      grid-column: span 3;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field.wide { grid-column: span 6; }
+    .field.small { grid-column: span 2; }
+
+    label {
+      font-size: .78rem;
+      color: #475569;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 11px 12px;
+      color: #0f172a;
+      background: #fff;
+      outline: none;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59,130,246,.14);
+    }
+
+    .section-title {
+      grid-column: 1 / -1;
+      margin: 10px 0 0;
+      color: #0f172a;
+      font-size: 1rem;
+      letter-spacing: -.02em;
+      font-weight: 950;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 850;
+      color: #fff;
+      background: var(--blue);
+      transition: transform .15s ease, background .15s ease, box-shadow .15s ease, opacity .15s ease;
+      box-shadow: 0 10px 20px rgba(37,99,235,.22);
+      white-space: nowrap;
+    }
+
+    .btn:hover { transform: translateY(-1px); background: var(--blue-dark); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn.secondary { background: #334155; box-shadow: 0 10px 20px rgba(15,23,42,.16); }
+    .btn.secondary:hover { background: #1e293b; }
+    .btn.ghost { background: rgba(255,255,255,.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,.14); box-shadow: none; }
+    .btn.light { background: #f1f5f9; color: #0f172a; box-shadow: none; border: 1px solid #dbe3ef; }
+    .btn.light:hover { background: #e2e8f0; }
+    .btn.success { background: #16a34a; box-shadow: 0 10px 20px rgba(22,163,74,.18); }
+    .btn.warning { background: #d97706; box-shadow: 0 10px 20px rgba(217,119,6,.18); }
+    .btn.danger { background: #dc2626; box-shadow: 0 10px 20px rgba(220,38,38,.2); }
+    .btn.linkish { background: transparent; color: #2563eb; box-shadow: none; padding-inline: 8px; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding: 8px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.13);
+      backdrop-filter: blur(12px);
+    }
+
+    .tab {
+      flex: 1 1 160px;
+      color: #cbd5e1;
+      background: transparent;
+      border-radius: 13px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 900;
+      transition: background .16s ease, color .16s ease, transform .16s ease;
+    }
+    .tab:hover { background: rgba(255,255,255,.08); }
+    .tab.active { background: #fff; color: #0f172a; box-shadow: 0 14px 24px rgba(0,0,0,.18); }
+
+    .round-nav {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      margin: 12px 0 0;
+    }
+
+    .round-pill {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #334155;
+      border-radius: 999px;
+      padding: 9px 13px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+    .round-pill.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .current-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .question-panel {
+      padding: 22px;
+    }
+
+    .question-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .question-title {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .question-title h2 {
+      margin: 0;
+      font-size: clamp(1.7rem, 2.6vw, 3rem);
+      letter-spacing: -.055em;
+    }
+
+    .question-title .mini {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .team-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .score-card {
+      position: relative;
+      border-radius: 24px;
+      border: 1px solid #dbe3ef;
+      background: linear-gradient(180deg, #fff, #f8fafc);
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(15,23,42,.08);
+    }
+
+    .score-card.team-1 { border-top: 7px solid var(--team1); }
+    .score-card.team-2 { border-top: 7px solid var(--team2); }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 18px 18px 10px;
+    }
+
+    .card-head h3 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -.05em;
+      line-height: 1.1;
+    }
+
+    .card-totals {
+      text-align: right;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .card-totals strong {
+      display: block;
+      color: #0f172a;
+      font-size: 2rem;
+      letter-spacing: -.06em;
+      line-height: 1;
+    }
+
+    .players-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 8px 18px 14px;
+    }
+
+    .player-card {
+      border: 1px solid #dbe3ef;
+      border-radius: 18px;
+      padding: 12px;
+      background: rgba(255,255,255,.88);
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .player-card.selected {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+    }
+
+    .player-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 9px;
+    }
+
+    .player-name {
+      font-weight: 950;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .state-badge {
+      min-width: 42px;
+      height: 32px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 999px;
+      font-weight: 950;
+      background: #e2e8f0;
+      color: #334155;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .state-badge[data-state="power"] { background: rgba(5,150,105,.14); color: var(--power); border-color: rgba(5,150,105,.26); }
+    .state-badge[data-state="tossup"] { background: rgba(51,65,85,.12); color: var(--tossup); border-color: rgba(51,65,85,.24); }
+    .state-badge[data-state="neg"] { background: rgba(220,38,38,.12); color: var(--neg); border-color: rgba(220,38,38,.24); }
+
+    .state-controls {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .mini-btn {
+      cursor: pointer;
+      border-radius: 10px;
+      padding: 7px 6px;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: .78rem;
+      font-weight: 950;
+      border: 1px solid #e2e8f0;
+      transition: transform .12s ease, background .12s ease;
+    }
+    .mini-btn:hover { transform: translateY(-1px); }
+    .mini-btn.power { color: var(--power); }
+    .mini-btn.tossup { color: var(--tossup); }
+    .mini-btn.neg { color: var(--neg); }
+
+    .bonus-box {
+      border-top: 1px solid #e2e8f0;
+      padding: 14px 18px 18px;
+      background: rgba(248,250,252,.9);
+    }
+
+    .bonus-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .bonus-segments {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .bonus-part {
+      cursor: pointer;
+      min-height: 42px;
+      border-radius: 13px;
+      border: 1px solid #dbe3ef;
+      background: white;
+      color: #475569;
+      font-weight: 950;
+      transition: transform .12s ease, background .12s ease, color .12s ease, border-color .12s ease;
+    }
+    .bonus-part:hover { transform: translateY(-1px); }
+    .bonus-part.active { background: rgba(217,119,6,.13); color: #b45309; border-color: rgba(217,119,6,.36); }
+    .bonus-part:disabled { cursor: not-allowed; opacity: .42; transform: none; }
+
+    .side-panel {
+      display: grid;
+      gap: 18px;
+    }
+
+    .notes-card, .legend-card, .shortcuts-card {
+      padding: 18px;
+    }
+
+    .notes-card h3, .legend-card h3, .shortcuts-card h3 {
+      margin: 0 0 12px;
+      letter-spacing: -.035em;
+    }
+
+    textarea {
+      min-height: 148px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .note-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+      font-size: .85rem;
+      font-weight: 850;
+    }
+
+    .legend-list, .shortcut-list {
+      display: grid;
+      gap: 8px;
+      color: #475569;
+      font-size: .95rem;
+    }
+    .legend-item, .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px dashed #dbe3ef;
+      padding-bottom: 8px;
+    }
+    .legend-item:last-child, .shortcut-item:last-child { border-bottom: 0; padding-bottom: 0; }
+
+    kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      min-height: 24px;
+      padding: 2px 7px;
+      border-radius: 7px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+      font-weight: 950;
+      box-shadow: 0 2px 0 #cbd5e1;
+      font-size: .78rem;
+    }
+
+    .sheet-wrap {
+      overflow: auto;
+      max-height: 72vh;
+      border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+      border-top: 1px solid #dbe3ef;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 1280px;
+      background: #fff;
+      color: #0f172a;
+    }
+
+    th, td {
+      padding: 11px 10px;
+      text-align: center;
+      border-bottom: 1px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
+      font-size: .9rem;
+      vertical-align: middle;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #0f172a;
+      color: white;
+      font-weight: 900;
+    }
+
+    thead tr:first-child th {
+      background: #111827;
+      font-size: .95rem;
+      letter-spacing: .02em;
+    }
+
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: #f8fafc;
+      font-weight: 950;
+      box-shadow: 1px 0 0 #e2e8f0;
+    }
+    thead .sticky-col { z-index: 4; background: #0f172a; color: #fff; }
+
+    tbody tr:nth-child(even) td { background: #fbfdff; }
+    tbody tr:hover td { background: #eff6ff; }
+    tbody tr.active-row td { background: #dbeafe; }
+    .divider-cell { background: #e2e8f0 !important; width: 10px; min-width: 10px; padding: 0; }
+
+    .cell-state {
+      display: inline-flex;
+      min-width: 38px;
+      height: 30px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-weight: 950;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .cell-state.power { background: rgba(5,150,105,.13); color: var(--power); }
+    .cell-state.tossup { background: rgba(51,65,85,.13); color: var(--tossup); }
+    .cell-state.neg { background: rgba(220,38,38,.13); color: var(--neg); }
+
+    .bonus-mini {
+      display: inline-flex;
+      gap: 4px;
+      justify-content: center;
+    }
+    .bonus-dot {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 950;
+      background: #e2e8f0;
+      color: #64748b;
+    }
+    .bonus-dot.on { background: rgba(217,119,6,.14); color: #b45309; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #fff, #f8fafc);
+    }
+    .panel-header h2 { margin: 0; letter-spacing: -.04em; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      padding: 18px 20px 22px;
+    }
+
+    .metric-card {
+      grid-column: span 3;
+      padding: 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(15,23,42,.06);
+    }
+    .metric-label { color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 900; }
+    .metric-value { margin-top: 8px; font-size: 2.15rem; font-weight: 950; letter-spacing: -.06em; color: #0f172a; }
+    .metric-note { margin-top: 4px; color: #64748b; font-weight: 750; }
+
+    .chart-card, .table-card {
+      grid-column: span 6;
+      padding: 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(15,23,42,.06);
+      overflow: hidden;
+    }
+    .table-card.full { grid-column: 1 / -1; }
+    .chart-card h3, .table-card h3 { margin: 0 0 12px; letter-spacing: -.035em; }
+
+    .mini-table {
+      width: 100%;
+      min-width: 0;
+      border-collapse: collapse;
+      background: #fff;
+    }
+    .mini-table th, .mini-table td {
+      padding: 10px 9px;
+      border: 1px solid #e2e8f0;
+      font-size: .9rem;
+    }
+    .mini-table th { background: #0f172a; color: #fff; position: static; }
+
+    .svg-chart {
+      width: 100%;
+      min-height: 260px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #f8fafc, #eef4ff);
+      border: 1px solid #dbe3ef;
+    }
+
+    .reports-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: min(760px, 100%);
+      border-radius: 28px;
+      background: #fff;
+      color: #0f172a;
+      box-shadow: 0 30px 90px rgba(0,0,0,.45);
+      overflow: hidden;
+    }
+    .modal-head { padding: 20px 22px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+    .modal-head h2 { margin: 0; letter-spacing: -.045em; }
+    .modal-body { padding: 20px 22px; }
+    .modal-actions { padding: 16px 22px 22px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 80;
+      display: grid;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast-message {
+      padding: 13px 15px;
+      color: white;
+      background: rgba(15,23,42,.94);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 14px;
+      box-shadow: 0 16px 34px rgba(0,0,0,.32);
+      opacity: 0;
+      transform: translateY(8px);
+      animation: toastIn 2.9s ease forwards;
+      font-weight: 800;
+    }
+    @keyframes toastIn {
+      0% { opacity: 0; transform: translateY(8px); }
+      10%, 84% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(8px); }
+    }
+
+    .hidden-file { display: none; }
+
+    @media (max-width: 1120px) {
+      .scoreboard-body { grid-template-columns: 1fr; }
+      .vs-block { display: none; }
+      .leadline { grid-column: auto; }
+      .current-layout { grid-template-columns: 1fr; }
+      .team-cards { grid-template-columns: 1fr; }
+      .metric-card { grid-column: span 6; }
+      .chart-card, .table-card { grid-column: 1 / -1; }
+      .field, .field.wide, .field.small { grid-column: span 6; }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell { width: min(100% - 18px, 1500px); padding-top: 12px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .status-strip { justify-content: flex-start; }
+      .scoreboard-top { align-items: flex-start; flex-direction: column; }
+      .scoreboard-body { padding: 12px; gap: 12px; }
+      .team-score { grid-template-columns: 1fr; min-height: 0; padding: 18px; }
+      .big-score { font-size: 3.4rem; }
+      .players-grid { grid-template-columns: 1fr; }
+      .question-head { align-items: flex-start; flex-direction: column; }
+      .nav-buttons { justify-content: stretch; width: 100%; }
+      .nav-buttons .btn { flex: 1; }
+      .field, .field.wide, .field.small { grid-column: 1 / -1; }
+      .metric-card { grid-column: 1 / -1; }
+      .tabs { padding: 6px; }
+      .tab { flex-basis: 100%; }
+    }
+
+    @media print {
+      body { background: white; color: black; }
+      body:before, .topbar, .scoreboard, details.panel, .tabs, .quick-actions, .nav-buttons, .toast, .modal-backdrop { display: none !important; }
+      .view { display: block !important; }
+      .panel { box-shadow: none; border: 1px solid #999; }
+      .sheet-wrap { max-height: none; overflow: visible; }
+      thead th, .sticky-col { position: static; }
+    }
+  </style>
 </head>
 <body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">QB</div>
+        <div>
+          <h1>NAQT Scorekeeper Pro</h1>
+          <div class="subtitle">Fast live scoring, clear round summaries, and safer tournament exports.</div>
+        </div>
+      </div>
+      <div class="status-strip">
+        <div class="pill"><span class="dot"></span><span id="autosaveText">Autosaved</span></div>
+        <div class="pill" id="storagePill">Local backup ready</div>
+      </div>
+    </header>
 
-    <h1>NAQT Score Sheet</h1>
+    <section class="scoreboard" aria-label="Live scoreboard">
+      <div class="scoreboard-top">
+        <div class="round-meta">
+          <span id="roundDisplay">Round 1</span>
+          <span id="questionDisplay">Question 1 / 24</span>
+          <span id="roomDisplay">Room —</span>
+          <span id="tournamentDisplay">Tournament —</span>
+        </div>
+        <div class="quick-actions">
+          <button class="btn ghost" id="settingsToggleBtn" type="button">⚙ Setup</button>
+          <button class="btn success" id="finishRoundBtn" type="button">Finish Round</button>
+          <button class="btn warning" id="printRoundBtn" type="button">Print Round</button>
+        </div>
+      </div>
+      <div class="scoreboard-body">
+        <div class="team-score team-1" id="scoreboardTeam1">
+          <div>
+            <div class="team-name" id="scoreboardTeam1Name">Team 1</div>
+            <div class="team-detail" id="scoreboardTeam1Detail">0 powers · 0 tossups · 0 negs · PPB N/A</div>
+          </div>
+          <div class="big-score" id="scoreboardTeam1Score">0</div>
+        </div>
+        <div class="vs-block"><div class="vs-circle">VS</div></div>
+        <div class="team-score team-2" id="scoreboardTeam2">
+          <div>
+            <div class="team-name" id="scoreboardTeam2Name">Team 2</div>
+            <div class="team-detail" id="scoreboardTeam2Detail">0 powers · 0 tossups · 0 negs · PPB N/A</div>
+          </div>
+          <div class="big-score" id="scoreboardTeam2Score">0</div>
+        </div>
+        <div class="leadline" id="leadline">The match is tied.</div>
+      </div>
+    </section>
 
-    <!-- Tournament Controls -->
-    <div class="tournament-controls">
-        <div><strong>Current Round: <span id="currentRoundDisplay">1</span></strong></div>
-        <button onclick="startNewTournament()">Start New Tournament</button>
-        <button onclick="finishRound()">Finish Round</button>
+    <details class="panel" id="setupPanel">
+      <summary>Match setup, round navigation, and reports</summary>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="field wide">
+            <label for="tournamentName">Tournament name</label>
+            <input id="tournamentName" type="text" placeholder="e.g., Spring Invitational" />
+          </div>
+          <div class="field">
+            <label for="roomNumber">Room</label>
+            <input id="roomNumber" type="text" placeholder="e.g., 204" />
+          </div>
+          <div class="field small">
+            <label for="powerVal">Power</label>
+            <input id="powerVal" type="number" value="15" />
+          </div>
+          <div class="field small">
+            <label for="tossupVal">Tossup</label>
+            <input id="tossupVal" type="number" value="10" />
+          </div>
+          <div class="field small">
+            <label for="bonusVal">Bonus part</label>
+            <input id="bonusVal" type="number" value="10" />
+          </div>
+          <div class="field small">
+            <label for="negVal">Neg</label>
+            <input id="negVal" type="number" value="-5" />
+          </div>
+
+          <div class="section-title">Team 1</div>
+          <div class="field wide"><label for="team1Name">Team name</label><input id="team1Name" type="text" placeholder="Team 1" /></div>
+          <div class="field"><label for="team1Player1">Player 1</label><input id="team1Player1" type="text" placeholder="Player 1" /></div>
+          <div class="field"><label for="team1Player2">Player 2</label><input id="team1Player2" type="text" placeholder="Player 2" /></div>
+          <div class="field"><label for="team1Player3">Player 3</label><input id="team1Player3" type="text" placeholder="Player 3" /></div>
+          <div class="field"><label for="team1Player4">Player 4</label><input id="team1Player4" type="text" placeholder="Player 4" /></div>
+
+          <div class="section-title">Team 2</div>
+          <div class="field wide"><label for="team2Name">Team name</label><input id="team2Name" type="text" placeholder="Team 2" /></div>
+          <div class="field"><label for="team2Player1">Player 1</label><input id="team2Player1" type="text" placeholder="Player 1" /></div>
+          <div class="field"><label for="team2Player2">Player 2</label><input id="team2Player2" type="text" placeholder="Player 2" /></div>
+          <div class="field"><label for="team2Player3">Player 3</label><input id="team2Player3" type="text" placeholder="Player 3" /></div>
+          <div class="field"><label for="team2Player4">Player 4</label><input id="team2Player4" type="text" placeholder="Player 4" /></div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px;">Rounds</div>
+        <div class="round-nav" id="roundNav"></div>
+
+        <div class="section-title" style="margin-top:22px;">Reports and backup</div>
+        <div class="reports-row" style="margin-top:10px;">
+          <button class="btn secondary" id="exportRoundBtn" type="button">Export Current Round</button>
+          <button class="btn secondary" id="exportTournamentBtn" type="button">Export Tournament</button>
+          <button class="btn light" id="copyStatsBtn" type="button">Copy Stats TSV</button>
+          <button class="btn light" id="copyNotesBtn" type="button">Copy Notes</button>
+          <button class="btn light" id="backupJsonBtn" type="button">Export Backup JSON</button>
+          <button class="btn light" id="importJsonBtn" type="button">Import Backup JSON</button>
+          <input class="hidden-file" type="file" id="importFile" accept="application/json,.json" />
+          <button class="btn danger" id="newTournamentBtn" type="button">Start New Tournament</button>
+        </div>
+      </div>
+    </details>
+
+    <nav class="tabs" aria-label="App views">
+      <button class="tab active" data-view="current" type="button">Current Question</button>
+      <button class="tab" data-view="sheet" type="button">Full Score Sheet</button>
+      <button class="tab" data-view="round" type="button">Round Summary</button>
+      <button class="tab" data-view="tournament" type="button">Tournament Stats</button>
+    </nav>
+
+    <main>
+      <section class="view active" id="view-current">
+        <div class="current-layout">
+          <div class="panel question-panel">
+            <div class="question-head">
+              <div class="question-title">
+                <h2 id="currentQuestionTitle">Question 1</h2>
+                <span class="mini">Use labeled scoring buttons or keyboard shortcuts.</span>
+              </div>
+              <div class="nav-buttons">
+                <button class="btn secondary" id="prevQuestionBtn" type="button">← Previous</button>
+                <button class="btn" id="nextQuestionBtn" type="button">Next →</button>
+              </div>
+            </div>
+            <div class="team-cards" id="teamCards"></div>
+          </div>
+
+          <aside class="side-panel">
+            <div class="panel notes-card">
+              <h3>Question notes</h3>
+              <textarea id="questionNotes" placeholder="Add notes for this tossup: protest, misread, substitution, timing issue, etc."></textarea>
+              <div class="note-chips">
+                <button class="chip" type="button" data-note="Protest: ">Protest</button>
+                <button class="chip" type="button" data-note="Misread: ">Misread</button>
+                <button class="chip" type="button" data-note="Timing issue: ">Timing issue</button>
+                <button class="chip" type="button" data-note="Player substitution: ">Substitution</button>
+                <button class="chip" type="button" data-note="Moderator note: ">Moderator note</button>
+              </div>
+            </div>
+
+            <div class="panel legend-card">
+              <h3>Scoring legend</h3>
+              <div class="legend-list">
+                <div class="legend-item"><span><strong style="color:var(--power)">P</strong> Power</span><span id="legendPower">+15</span></div>
+                <div class="legend-item"><span><strong>10</strong> Tossup</span><span id="legendTossup">+10</span></div>
+                <div class="legend-item"><span><strong style="color:var(--neg)">−5</strong> Neg</span><span id="legendNeg">−5</span></div>
+                <div class="legend-item"><span><strong style="color:var(--bonus)">Bonus</strong> each part</span><span id="legendBonus">+10</span></div>
+              </div>
+            </div>
+
+            <div class="panel shortcuts-card">
+              <h3>Keyboard shortcuts</h3>
+              <div class="shortcut-list">
+                <div class="shortcut-item"><span>Next / previous</span><span><kbd>→</kbd> <kbd>←</kbd></span></div>
+                <div class="shortcut-item"><span>Selected player state</span><span><kbd>P</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>0</kbd></span></div>
+                <div class="shortcut-item"><span>Toggle next bonus for selected team</span><span><kbd>B</kbd></span></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-sheet">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Full score sheet</h2>
+            <div class="reports-row">
+              <button class="btn light" id="jumpCurrentBtn" type="button">Jump to Current Question</button>
+              <button class="btn light" id="printSheetBtn" type="button">Print</button>
+            </div>
+          </div>
+          <div class="sheet-wrap" id="sheetWrap">
+            <table id="scoreSheetTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-round">
+        <div class="panel">
+          <div class="panel-header"><h2>Round summary</h2><button class="btn light" id="refreshRoundBtn" type="button">Refresh</button></div>
+          <div class="stats-grid" id="roundSummary"></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-tournament">
+        <div class="panel">
+          <div class="panel-header"><h2>Tournament stats</h2><button class="btn light" id="refreshTournamentBtn" type="button">Refresh</button></div>
+          <div class="stats-grid" id="tournamentSummary"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="finishModal" role="dialog" aria-modal="true" aria-labelledby="finishModalTitle">
+    <div class="modal">
+      <div class="modal-head"><h2 id="finishModalTitle">Finish round?</h2></div>
+      <div class="modal-body" id="finishModalBody"></div>
+      <div class="modal-actions">
+        <button class="btn light" id="cancelFinishBtn" type="button">Go Back</button>
+        <button class="btn success" id="confirmFinishBtn" type="button">Confirm Finish Round</button>
+      </div>
     </div>
+  </div>
 
-    <!-- View Controls -->
-    <div class="tournament-controls">
-        <button onclick="showWholeView()">Whole Score Sheet View</button>
-        <button onclick="showCurrentQuestionView()">Current Question View</button>
-    </div>
+  <div class="toast" id="toast"></div>
 
-       <!-- Export Buttons -->
-    <div class="tournament-controls">
-        <button onclick="exportCurrentRound()">Export Current Round</button>
-        <button onclick="exportTournament()">Export Tournament</button>
-        <button onclick="copyTournamentStats()">Copy Tournament Stats</button>
-        <button onclick="copyTournamentNotes()">Copy Tournament Notes</button>
+  <script>
+    const TOSSUP_COUNT = 24;
+    const STORAGE_KEY = 'naqtScorekeeperPro.v1';
+    const TEAM_KEYS = ['team1', 'team2'];
+    const STATE_ORDER = ['none', 'power', 'tossup', 'neg'];
+    const STATE_LABEL = { none: '—', power: 'P', tossup: '10', neg: '−5' };
+    const STATE_NAME = { none: 'cleared', power: 'power', tossup: 'tossup', neg: 'neg' };
 
-    </div>
+    let selectedTarget = { team: 'team1', playerIndex: 0 };
+    let saveTimer = null;
 
-    <!-- Round Navigation -->
-    <div class="round-navigation" id="roundNavigation">
-        <!-- Buttons for navigating between rounds will be added here -->
-    </div>
+    let app = loadState() || createInitialState();
+    normalizeState(app);
 
-    <!-- Tournament Details -->
-    <div class="settings">
-        <div>
-            <label for="tournamentName">Tournament Name:</label>
-            <input type="text" id="tournamentName" placeholder="Enter Tournament Name">
-        </div>
-        <div>
-            <label for="roomNumber">Room Number:</label>
-            <input type="text" id="roomNumber" placeholder="Enter Room Number">
-        </div>
-        <div>
-            <label for="powerVal">Power Value:</label>
-            <input type="number" id="powerVal" value="15">
-        </div>
-        <div>
-            <label for="tossupVal">Tossup Value:</label>
-            <input type="number" id="tossupVal" value="10">
-        </div>
-        <div>
-            <label for="bonusVal">Bonus Value:</label>
-            <input type="number" id="bonusVal" value="10">
-        </div>
-        <div>
-            <label for="negVal">Neg Value:</label>
-            <input type="number" id="negVal" value="-5">
-        </div>
-    </div>
-
-    <!-- Team Names and Player Names -->
-    <div class="settings">
-        <div>
-            <label for="team1">Team 1 Name:</label>
-            <input type="text" id="team1" class="team-name-input" placeholder="Enter Team 1 Name">
-        </div>
-        <div>
-            <label for="player1_1_name">Player 1:</label>
-            <input type="text" id="player1_1_name" class="player-name-input" placeholder="Player 1 Name">
-        </div>
-        <div>
-            <label for="player1_2_name">Player 2:</label>
-            <input type="text" id="player1_2_name" class="player-name-input" placeholder="Player 2 Name">
-        </div>
-        <div>
-            <label for="player1_3_name">Player 3:</label>
-            <input type="text" id="player1_3_name" class="player-name-input" placeholder="Player 3 Name">
-        </div>
-        <div>
-            <label for="player1_4_name">Player 4:</label>
-            <input type="text" id="player1_4_name" class="player-name-input" placeholder="Player 4 Name">
-        </div>
-    </div>
-
-    <div class="settings">
-        <div>
-            <label for="team2">Team 2 Name:</label>
-            <input type="text" id="team2" class="team-name-input" placeholder="Enter Team 2 Name">
-        </div>
-        <div>
-            <label for="player2_1_name">Player 1:</label>
-            <input type="text" id="player2_1_name" class="player-name-input" placeholder="Player 1 Name">
-        </div>
-        <div>
-            <label for="player2_2_name">Player 2:</label>
-            <input type="text" id="player2_2_name" class="player-name-input" placeholder="Player 2 Name">
-        </div>
-        <div>
-            <label for="player2_3_name">Player 3:</label>
-            <input type="text" id="player2_3_name" class="player-name-input" placeholder="Player 3 Name">
-        </div>
-        <div>
-            <label for="player2_4_name">Player 4:</label>
-            <input type="text" id="player2_4_name" class="player-name-input" placeholder="Player 4 Name">
-        </div>
-    </div>
-
-    <!-- Progress Indicator -->
-    <div class="progress">
-        Question <span id="currentQuestionDisplay">1</span> of 24
-    </div>
-
-    <!-- Navigation Buttons -->
-    <div class="navigation">
-        <button id="prevButton" onclick="prevQuestion()" disabled>&larr; Previous</button>
-        <button id="nextButton" onclick="nextQuestion()">Next &rarr;</button>
-    </div>
-
-    <!-- Score Sheet Table -->
-    <div class="score-sheet">
-        <table>
-            <thead>
-                <tr>
-                    <th>Tossup Number</th>
-
-                    <!-- Team 1 Player Columns -->
-                    <th id="team1_player1_header">Player 1</th>
-                    <th id="team1_player2_header">Player 2</th>
-                    <th id="team1_player3_header">Player 3</th>
-                    <th id="team1_player4_header">Player 4</th>
-                    <th>Bonuses</th>
-                    <th>Total</th>
-                    <th>Cumulative Score</th>
-                    <th>Notes</th>
-                    <th class="divider"></th>
-                    <th>Cumulative Score</th>
-                    <th>Total</th>
-                    <th>Bonuses</th>
-
-                    <!-- Team 2 Player Columns -->
-                    <th id="team2_player1_header">Player 1</th>
-                    <th id="team2_player2_header">Player 2</th>
-                    <th id="team2_player3_header">Player 3</th>
-                    <th id="team2_player4_header">Player 4</th>
-                </tr>
-            </thead>
-            <tbody id="scoreSheetBody">
-                <!-- Rows for Tossups (1-24) will be dynamically generated -->
-            </tbody>
-            <tfoot>
-                <!-- Totals -->
-                <tr>
-                    <td>Total Powers</td>
-                    <td id="totalPowers1_1">0</td>
-                    <td id="totalPowers1_2">0</td>
-                    <td id="totalPowers1_3">0</td>
-                    <td id="totalPowers1_4">0</td>
-                    <td></td><td></td><td></td><td></td><td class="divider"></td>
-                    <td></td><td></td><td></td>
-                    <td id="totalPowers2_1">0</td>
-                    <td id="totalPowers2_2">0</td>
-                    <td id="totalPowers2_3">0</td>
-                    <td id="totalPowers2_4">0</td>
-                </tr>
-                <tr>
-                    <td>Total Tossups</td>
-                    <td id="totalTossups1_1">0</td>
-                    <td id="totalTossups1_2">0</td>
-                    <td id="totalTossups1_3">0</td>
-                    <td id="totalTossups1_4">0</td>
-                    <td></td><td></td><td></td><td></td><td class="divider"></td>
-                    <td></td><td></td><td></td>
-                    <td id="totalTossups2_1">0</td>
-                    <td id="totalTossups2_2">0</td>
-                    <td id="totalTossups2_3">0</td>
-                    <td id="totalTossups2_4">0</td>
-                </tr>
-                <tr>
-                    <td>Total Negs</td>
-                    <td id="totalNegs1_1">0</td>
-                    <td id="totalNegs1_2">0</td>
-                    <td id="totalNegs1_3">0</td>
-                    <td id="totalNegs1_4">0</td>
-                    <td></td><td></td><td></td><td></td><td class="divider"></td>
-                    <td></td><td></td><td></td>
-                    <td id="totalNegs2_1">0</td>
-                    <td id="totalNegs2_2">0</td>
-                    <td id="totalNegs2_3">0</td>
-                    <td id="totalNegs2_4">0</td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-
-    <!-- JavaScript -->
-   <script>
-  const tossupCount = 24;
-  const scoreSheetBody = document.getElementById('scoreSheetBody');
-  let currentQuestion = 1;
-  let wholeView = false;
-  let tournamentData = [];
-  let currentRound = 1;
-  let currentRoundIndex = null; // To track the index of the current round
-      // … your declarations …
-    let playerNames = { team1: [], team2: [] };
-
-    // Build the empty sheet right away
-    generateScoreSheet();
-
-    // Show initial question & round
-    document.getElementById('currentQuestionDisplay').innerText = currentQuestion;
-    document.getElementById('currentRoundDisplay').innerText = currentRound;
-
-    // ——————————————
-    // NOW restore from localStorage (table is in place already!)
-    if (localStorage.getItem('tournamentData')) {
-      tournamentData = JSON.parse(localStorage.getItem('tournamentData'));
-      currentRound = parseInt(localStorage.getItem('currentRound'), 10) || 1;
-      let storedIdx = localStorage.getItem('currentRoundIndex');
-// if nothing was selected, default to the most-recent round
- currentRoundIndex = storedIdx !== null
-   ? parseInt(storedIdx, 10)
-   : (tournamentData.length ? tournamentData.length - 1 : null);
-      playerNames = JSON.parse(
-        localStorage.getItem('playerNames') ||
-        '{"team1":[],"team2":[]}'
-      );
-
-      if (currentRoundIndex !== null) {
-   loadRoundData(currentRoundIndex);
- } else {
-   // no rounds yet, just reset scoreboard for round 1
-   document.getElementById('currentRoundDisplay').innerText = currentRound;
-   loadPlayerNames();
-   updateHeaders();
- }
-    }
-// rebuild the round‐selector buttons
-updateRoundNavigation();
-
-    // ——————————————
-
-     
-   // Generate the initial score sheet
-        generateScoreSheet();
-
-        // Show the first question
-        document.getElementById('currentQuestionDisplay').innerText = currentQuestion;
-        document.getElementById('currentRoundDisplay').innerText = currentRound;
-
-        // Create score sheet rows for each tossup
-        function generateScoreSheet() {
-            scoreSheetBody.innerHTML = '';
-            for (let i = 1; i <= tossupCount; i++) {
-                const row = document.createElement('tr');
-                row.id = `questionRow_${i}`;
-                if (!wholeView && i !== currentQuestion) row.classList.add('hidden');
-                row.innerHTML = `
-                    <td>${i}</td>
-
-                    <!-- Team 1 Player Checkboxes -->
-                    <td class="player-check"><button id="player1_${i}_1" onclick="cyclePlayerState(${i}, 1, 1)"></button></td>
-                    <td class="player-check"><button id="player1_${i}_2" onclick="cyclePlayerState(${i}, 1, 2)"></button></td>
-                    <td class="player-check"><button id="player1_${i}_3" onclick="cyclePlayerState(${i}, 1, 3)"></button></td>
-                    <td class="player-check"><button id="player1_${i}_4" onclick="cyclePlayerState(${i}, 1, 4)"></button></td>
-                    <td class="bonus">
-                        <input type="checkbox" id="bonus1_${i}_1" onchange="updateScore(${i}, 1)">
-                        <input type="checkbox" id="bonus1_${i}_2" onchange="updateScore(${i}, 1)">
-                        <input type="checkbox" id="bonus1_${i}_3" onchange="updateScore(${i}, 1)">
-                    </td>
-                    <td id="tossupBonus1_${i}">0</td>
-                    <td id="cumulative1_${i}">0</td>
-                    <td><textarea class="notes-box" id="notes_${i}" placeholder="Add notes..."></textarea></td>
-                    <td class="divider"></td>
-                    <td id="cumulative2_${i}">0</td>
-                    <td id="tossupBonus2_${i}">0</td>
-                    <td class="bonus">
-                        <input type="checkbox" id="bonus2_${i}_1" onchange="updateScore(${i}, 2)">
-                        <input type="checkbox" id="bonus2_${i}_2" onchange="updateScore(${i}, 2)">
-                        <input type="checkbox" id="bonus2_${i}_3" onchange="updateScore(${i}, 2)">
-                    </td>
-                    <td class="player-check"><button id="player2_${i}_1" onclick="cyclePlayerState(${i}, 2, 1)"></button></td>
-                    <td class="player-check"><button id="player2_${i}_2" onclick="cyclePlayerState(${i}, 2, 2)"></button></td>
-                    <td class="player-check"><button id="player2_${i}_3" onclick="cyclePlayerState(${i}, 2, 3)"></button></td>
-                    <td class="player-check"><button id="player2_${i}_4" onclick="cyclePlayerState(${i}, 2, 4)"></button></td>
-                `;
-                scoreSheetBody.appendChild(row);
-            }
-        }
-
-        // Function to navigate to the next question
-        function nextQuestion() {
-            if (currentQuestion < tossupCount) {
-                if (!wholeView) document.getElementById(`questionRow_${currentQuestion}`).classList.add('hidden');
-                currentQuestion++;
-                if (!wholeView) document.getElementById(`questionRow_${currentQuestion}`).classList.remove('hidden');
-                document.getElementById('currentQuestionDisplay').innerText = currentQuestion;
-                document.getElementById('prevButton').disabled = false;
-                if (currentQuestion === tossupCount) {
-                    document.getElementById('nextButton').disabled = true;
-                }
-            }
-        }
-
-        // Function to navigate to the previous question
-        function prevQuestion() {
-            if (currentQuestion > 1) {
-                if (!wholeView) document.getElementById(`questionRow_${currentQuestion}`).classList.add('hidden');
-                currentQuestion--;
-                if (!wholeView) document.getElementById(`questionRow_${currentQuestion}`).classList.remove('hidden');
-                document.getElementById('currentQuestionDisplay').innerText = currentQuestion;
-                document.getElementById('nextButton').disabled = false;
-                if (currentQuestion === 1) {
-                    document.getElementById('prevButton').disabled = true;
-                }
-            }
-        }
-
-        // Show Whole Score Sheet View
-        function showWholeView() {
-            wholeView = true;
-            document.querySelectorAll('tr[id^="questionRow_"]').forEach(row => row.classList.remove('hidden'));
-            document.getElementById('prevButton').disabled = true;
-            document.getElementById('nextButton').disabled = true;
-            document.querySelector('.progress').classList.add('hidden');
-        }
-
-        // Show Current Question View
-        function showCurrentQuestionView() {
-            wholeView = false;
-            document.querySelectorAll('tr[id^="questionRow_"]').forEach(row => row.classList.add('hidden'));
-            document.getElementById(`questionRow_${currentQuestion}`).classList.remove('hidden');
-            document.getElementById('prevButton').disabled = currentQuestion === 1;
-            document.getElementById('nextButton').disabled = currentQuestion === tossupCount;
-            document.querySelector('.progress').classList.remove('hidden');
-        }
-
-        // Function to cycle player state
-        function cyclePlayerState(tossupNumber, team, player) {
-            const button = document.getElementById(`player${team}_${tossupNumber}_${player}`);
-            const currentColor = button.style.backgroundColor;
-
-            if (currentColor === "green") {
-                button.style.backgroundColor = "black";
-            } else if (currentColor === "black") {
-                button.style.backgroundColor = "red";
-            } else if (currentColor === "red") {
-                button.style.backgroundColor = "white";
-            } else {
-                button.style.backgroundColor = "green";
-            }
-
-            updateScore(tossupNumber, team);
-            updatePlayerTotals(team, player);
-        }
-
-        // Function to update scores
-        function updateScore(tossupNumber, team) {
-            const powerValue = parseInt(document.getElementById('powerVal').value) || 0;
-            const tossupValue = parseInt(document.getElementById('tossupVal').value) || 0;
-            const bonusValue = parseInt(document.getElementById('bonusVal').value) || 0;
-            const negValue = parseInt(document.getElementById('negVal').value) || 0;
-
-            let tossupPoints = 0;
-
-            for (let j = 1; j <= 4; j++) {
-                const button = document.getElementById(`player${team}_${tossupNumber}_${j}`);
-                const color = button.style.backgroundColor;
-                if (color === "green") {
-                    tossupPoints += powerValue;
-                } else if (color === "black") {
-                    tossupPoints += tossupValue;
-                } else if (color === "red") {
-                    tossupPoints += negValue;
-                }
-             saveToLocalStorage();
-            }
-
-            // Calculate bonus points
-            let bonusPoints = 0;
-            for (let j = 1; j <= 3; j++) {
-                if (document.getElementById(`bonus${team}_${tossupNumber}_${j}`).checked) {
-                    bonusPoints += bonusValue;
-                }
-            }
-
-            const rowTotal = tossupPoints + bonusPoints;
-            document.getElementById(`tossupBonus${team}_${tossupNumber}`).innerText = rowTotal;
-
-            // Updated cumulative score calculation
-            let cumulativeScore = 0;
-            for (let i = 1; i <= tossupCount; i++) {
-                cumulativeScore += parseInt(document.getElementById(`tossupBonus${team}_${i}`).innerText) || 0;
-                document.getElementById(`cumulative${team}_${i}`).innerText = cumulativeScore;
-            }
-        }
-
-        // Update player totals
-        function updatePlayerTotals(team, player) {
-            let powers = 0, tossups = 0, negs = 0;
-            for (let i = 1; i <= tossupCount; i++) {
-                const button = document.getElementById(`player${team}_${i}_${player}`);
-                const color = button.style.backgroundColor;
-                if (color === "green") {
-                    powers++;
-                } else if (color === "black") {
-                    tossups++;
-                } else if (color === "red") {
-                    negs++;
-                }
-            }
-            document.getElementById(`totalPowers${team}_${player}`).innerText = powers;
-            document.getElementById(`totalTossups${team}_${player}`).innerText = tossups;
-            document.getElementById(`totalNegs${team}_${player}`).innerText = negs;
-        }
-
-        // Reset the score sheet
-        function resetScores() {
-            for (let i = 1; i <= tossupCount; i++) {
-                for (let j = 1; j <= 4; j++) {
-                    const button1 = document.getElementById(`player1_${i}_${j}`);
-                    const button2 = document.getElementById(`player2_${i}_${j}`);
-                    button1.style.backgroundColor = "white";
-                    button2.style.backgroundColor = "white";
-                }
-                for (let j = 1; j <= 3; j++) {
-                    document.getElementById(`bonus1_${i}_${j}`).checked = false;
-                    document.getElementById(`bonus2_${i}_${j}`).checked = false;
-                }
-                document.getElementById(`tossupBonus1_${i}`).innerText = 0;
-                document.getElementById(`tossupBonus2_${i}`).innerText = 0;
-                document.getElementById(`cumulative1_${i}`).innerText = 0;
-                document.getElementById(`cumulative2_${i}`).innerText = 0;
-                document.getElementById(`notes_${i}`).value = "";
-            }
-
-            for (let player = 1; player <= 4; player++) {
-                document.getElementById(`totalPowers1_${player}`).innerText = 0;
-                document.getElementById(`totalTossups1_${player}`).innerText = 0;
-                document.getElementById(`totalNegs1_${player}`).innerText = 0;
-                document.getElementById(`totalPowers2_${player}`).innerText = 0;
-                document.getElementById(`totalTossups2_${player}`).innerText = 0;
-                document.getElementById(`totalNegs2_${player}`).innerText = 0;
-            }
-
-            // Reset to the first question
-            if (!wholeView) {
-                document.getElementById(`questionRow_${currentQuestion}`).classList.add('hidden');
-                currentQuestion = 1;
-                document.getElementById(`questionRow_${currentQuestion}`).classList.remove('hidden');
-                document.getElementById('currentQuestionDisplay').innerText = currentQuestion;
-                document.getElementById('prevButton').disabled = true;
-                document.getElementById('nextButton').disabled = false;
-            }
-        }
-
-        // Start a new tournament
-           function startNewTournament() {
-      if (!confirm("Are you sure you want to start a new tournament? All data will be lost.")) return;
-      // ——————————————
-      // Clear out persistence
-      localStorage.removeItem('tournamentData');
-      localStorage.removeItem('currentRound');
-      localStorage.removeItem('currentRoundIndex');
-      localStorage.removeItem('playerNames');
-      // ——————————————
-      tournamentData = [];
-      currentRound = 1;
-      currentRoundIndex = null;
-      resetScores();
-      document.getElementById('tournamentName').value = '';
-      document.getElementById('roomNumber').value = '';
-      document.getElementById('team1').value = '';
-      document.getElementById('team2').value = '';
-      playerNames = { team1: [], team2: [] };
-      document.getElementById('currentRoundDisplay').innerText = currentRound;
-      updateRoundNavigation();
-      loadPlayerNames();
-      updateHeaders();
+    function createInitialState() {
+      return {
+        tournamentName: '',
+        roomNumber: '',
+        pointValues: { power: 15, tossup: 10, bonus: 10, neg: -5 },
+        currentRoundIndex: 0,
+        currentQuestion: 1,
+        activeView: 'current',
+        rounds: [createRound(1)]
+      };
     }
 
-
-      // Finish current round
- function finishRound() {
-  if (!confirm("Are you sure you want to finish this round?")) return;
-
-  // 1) Save edits on whichever round you're viewing (old or new)
-  saveCurrentRound();
-  saveToLocalStorage();
-
-  // 2) Jump to the actual latest round before finishing it
-  const lastIdx = tournamentData.length - 1;
-  if (currentRoundIndex !== lastIdx) {
-    loadRoundData(lastIdx);
-  }
-
-  // 3) Save that (now-current) round to capture any last-second note changes
-  saveCurrentRound();
-  saveToLocalStorage();
-
-  // 4) Rebuild the round buttons
-  updateRoundNavigation();
-
-  // 5) Advance to a fresh next round
-  currentRound++;
-  currentRoundIndex = null;    // we're now on a new, empty round
-  document.getElementById('currentRoundDisplay').innerText = currentRound;
-
-  // 6) Clear the board and reload player names/headers
-  resetScores();
-  loadPlayerNames();
-  updateHeaders();
-}
-
-
-        // Save current round data
-        function saveCurrentRound() {
-            const roundData = {
-                roundNumber: currentRound,
-                team1: document.getElementById('team1').value,
-                team2: document.getElementById('team2').value,
-                players1: [
-                    document.getElementById('player1_1_name').value,
-                    document.getElementById('player1_2_name').value,
-                    document.getElementById('player1_3_name').value,
-                    document.getElementById('player1_4_name').value
-                ],
-                players2: [
-                    document.getElementById('player2_1_name').value,
-                    document.getElementById('player2_2_name').value,
-                    document.getElementById('player2_3_name').value,
-                    document.getElementById('player2_4_name').value
-                ],
-                scores: [],
-                playerTotals1: [], // To store player totals for team 1
-                playerTotals2: []  // To store player totals for team 2
-            };
-
-            // Get player totals
-            for (let player = 1; player <= 4; player++) {
-                roundData.playerTotals1.push({
-                    name: document.getElementById(`player1_${player}_name`).value || `Player ${player}`,
-                    powers: parseInt(document.getElementById(`totalPowers1_${player}`).innerText),
-                    tossups: parseInt(document.getElementById(`totalTossups1_${player}`).innerText),
-                    negs: parseInt(document.getElementById(`totalNegs1_${player}`).innerText)
-                });
-                roundData.playerTotals2.push({
-                    name: document.getElementById(`player2_${player}_name`).value || `Player ${player}`,
-                    powers: parseInt(document.getElementById(`totalPowers2_${player}`).innerText),
-                    tossups: parseInt(document.getElementById(`totalTossups2_${player}`).innerText),
-                    negs: parseInt(document.getElementById(`totalNegs2_${player}`).innerText)
-                });
-            }
-
-            for (let i = 1; i <= tossupCount; i++) {
-                const tossup = {
-                    number: i,
-                    team1: {
-                        players: [],
-                        bonuses: [],
-                        total: document.getElementById(`tossupBonus1_${i}`).innerText,
-                        cumulative: document.getElementById(`cumulative1_${i}`).innerText
-                    },
-                    team2: {
-                        players: [],
-                        bonuses: [],
-                        total: document.getElementById(`tossupBonus2_${i}`).innerText,
-                        cumulative: document.getElementById(`cumulative2_${i}`).innerText
-                    },
-                    notes: document.getElementById(`notes_${i}`).value
-                };
-
-                for (let j = 1; j <= 4; j++) {
-                    tossup.team1.players.push(getPlayerScoreValue(`player1_${i}_${j}`));
-                    tossup.team2.players.push(getPlayerScoreValue(`player2_${i}_${j}`));
-                }
-
-                for (let j = 1; j <= 3; j++) {
-                    tossup.team1.bonuses.push(document.getElementById(`bonus1_${i}_${j}`).checked);
-                    tossup.team2.bonuses.push(document.getElementById(`bonus2_${i}_${j}`).checked);
-                }
-
-                roundData.scores.push(tossup);
-            }
-
-            if (currentRoundIndex !== null) {
-                tournamentData[currentRoundIndex] = roundData;
-            } else {
-                tournamentData.push(roundData);
-                currentRoundIndex = tournamentData.length - 1;
-            }
-
-            // Retain player names
-            playerNames.team1 = roundData.players1;
-            playerNames.team2 = roundData.players2;
-        }
-
-        // Load player names for new round
-        function loadPlayerNames() {
-            const players1 = playerNames.team1;
-            const players2 = playerNames.team2;
-
-            document.getElementById('player1_1_name').value = players1[0] || '';
-            document.getElementById('player1_2_name').value = players1[1] || '';
-            document.getElementById('player1_3_name').value = players1[2] || '';
-            document.getElementById('player1_4_name').value = players1[3] || '';
-
-            document.getElementById('player2_1_name').value = players2[0] || '';
-            document.getElementById('player2_2_name').value = players2[1] || '';
-            document.getElementById('player2_3_name').value = players2[2] || '';
-            document.getElementById('player2_4_name').value = players2[3] || '';
-        }
-
-        // Update round navigation buttons
-        function updateRoundNavigation() {
-            const roundNavDiv = document.getElementById('roundNavigation');
-            roundNavDiv.innerHTML = '';
-            tournamentData.forEach((round, index) => {
-                const button = document.createElement('button');
-                button.innerText = `Round ${round.roundNumber}`;
-                button.onclick = () => loadRoundData(index);
-                roundNavDiv.appendChild(button);
-            });
-        }
-
-        // Load round data
-        function loadRoundData(index) {
-            const roundData = tournamentData[index];
-            currentRound = roundData.roundNumber;
-            currentRoundIndex = index;
-            document.getElementById('currentRoundDisplay').innerText = currentRound;
-            document.getElementById('team1').value = roundData.team1;
-            document.getElementById('team2').value = roundData.team2;
-
-            playerNames.team1 = roundData.players1;
-            playerNames.team2 = roundData.players2;
-            loadPlayerNames();
-            updateHeaders();
-
-            // Reset and populate score sheet
-            resetScores();
-            for (let i = 1; i <= tossupCount; i++) {
-                const tossup = roundData.scores[i - 1];
-
-                // Load player scores
-                for (let j = 1; j <= 4; j++) {
-                    const score1 = tossup.team1.players[j - 1];
-                    const score2 = tossup.team2.players[j - 1];
-
-                    const button1 = document.getElementById(`player1_${i}_${j}`);
-                    const button2 = document.getElementById(`player2_${i}_${j}`);
-
-                    button1.style.backgroundColor = getColorFromScore(score1);
-                    button2.style.backgroundColor = getColorFromScore(score2);
-                }
-
-                // Load bonuses
-                for (let j = 1; j <= 3; j++) {
-                    document.getElementById(`bonus1_${i}_${j}`).checked = tossup.team1.bonuses[j - 1];
-                    document.getElementById(`bonus2_${i}_${j}`).checked = tossup.team2.bonuses[j - 1];
-                }
-
-                // Load totals
-                document.getElementById(`tossupBonus1_${i}`).innerText = tossup.team1.total;
-                document.getElementById(`tossupBonus2_${i}`).innerText = tossup.team2.total;
-                document.getElementById(`cumulative1_${i}`).innerText = tossup.team1.cumulative;
-                document.getElementById(`cumulative2_${i}`).innerText = tossup.team2.cumulative;
-
-                // Load notes
-                document.getElementById(`notes_${i}`).value = tossup.notes;
-
-                // Update player totals
-                for (let j = 1; j <= 4; j++) {
-                    updatePlayerTotals(1, j);
-                    updatePlayerTotals(2, j);
-                }
-            }
-        }
-
-        // Helper function to get color from score
-        function getColorFromScore(score) {
-            const powerValue = parseInt(document.getElementById('powerVal').value) || 15;
-            const tossupValue = parseInt(document.getElementById('tossupVal').value) || 10;
-            const negValue = parseInt(document.getElementById('negVal').value) || -5;
-
-            if (score == powerValue) return 'green';
-            if (score == tossupValue) return 'black';
-            if (score == negValue) return 'red';
-            return 'white';
-        }
-
-        // Helper function to get player's score value
-        function getPlayerScoreValue(buttonId) {
-            const button = document.getElementById(buttonId);
-            const color = button.style.backgroundColor;
-            const powerValue = parseInt(document.getElementById('powerVal').value) || 15;
-            const tossupValue = parseInt(document.getElementById('tossupVal').value) || 10;
-            const negValue = parseInt(document.getElementById('negVal').value) || -5;
-
-            if (color === "green") return powerValue;
-            if (color === "black") return tossupValue;
-            if (color === "red") return negValue;
-            return 0;
-        }
-
-        // Export current round
-        function exportCurrentRound() {
-            saveCurrentRound();
-            exportToPrintableFormat([tournamentData[currentRoundIndex]]);
-        }
-
-        // Export entire tournament
-        function exportTournament() {
-            saveCurrentRound();
-            exportToPrintableFormat(tournamentData);
-        }
-
-        // Export to printable format
-       function exportToPrintableFormat(dataArray) {
-    const sep = '\t';
-    let printableContent = '<html><head><title>Tournament Export</title></head><body>';
-    /* … */
-
-            printableContent += `<h1>${document.getElementById('tournamentName').value || 'Tournament'} Export</h1>`;
-
-            // Initialize tournament summary variables
-            let tournamentTotals = {
-                team1: { powers: 0, tossups: 0, negs: 0, totalPoints: 0, bonusPoints: 0, bonusesHeard: 0 },
-                team2: { powers: 0, tossups: 0, negs: 0, totalPoints: 0, bonusPoints: 0, bonusesHeard: 0 }
-            };
-
-            let playerStats = [];
-
-            dataArray.forEach(roundData => {
-                printableContent += `<h2>Round ${roundData.roundNumber}</h2>`;
-                printableContent += `<p>Room Number: ${document.getElementById('roomNumber').value || ''}</p>`;
-                printableContent += `<p>${roundData.team1} vs. ${roundData.team2}</p>`;
-
-                // Player Totals
-                printableContent += '<h3>Player Totals</h3>';
-                printableContent += '<table border="1" cellspacing="0" cellpadding="5">';
-                printableContent += '<tr><th>Team</th><th>Player</th><th>Powers</th><th>Tossups</th><th>Negs</th></tr>';
-
-                // Team 1 Player Totals
-                roundData.playerTotals1.forEach(player => {
-                    printableContent += `<tr><td>${roundData.team1}</td><td>${player.name}</td><td>${player.powers}</td><td>${player.tossups}</td><td>${player.negs}</td></tr>`;
-
-                    // Update tournament totals
-                    tournamentTotals.team1.powers += player.powers;
-                    tournamentTotals.team1.tossups += player.tossups;
-                    tournamentTotals.team1.negs += player.negs;
-
-                    // Update player stats
-                    updatePlayerStats(playerStats, player.name, roundData.team1, player.powers, player.tossups, player.negs);
-                });
-
-                // Team 2 Player Totals
-                roundData.playerTotals2.forEach(player => {
-                    printableContent += `<tr><td>${roundData.team2}</td><td>${player.name}</td><td>${player.powers}</td><td>${player.tossups}</td><td>${player.negs}</td></tr>`;
-
-                    // Update tournament totals
-                    tournamentTotals.team2.powers += player.powers;
-                    tournamentTotals.team2.tossups += player.tossups;
-                    tournamentTotals.team2.negs += player.negs;
-
-                    // Update player stats
-                    updatePlayerStats(playerStats, player.name, roundData.team2, player.powers, player.tossups, player.negs);
-                });
-
-                printableContent += '</table>';
-
-                // Game Scores
-                printableContent += '<h3>Game Scores</h3>';
-                printableContent += '<table border="1" cellspacing="0" cellpadding="5">';
-                printableContent += '<tr><th>Tossup</th>';
-
-                // Team 1 Player Headers
-                roundData.players1.forEach(player => {
-                    printableContent += `<th>${player || 'Player'}</th>`;
-                });
-
-                printableContent += '<th>Bonuses</th><th>Total</th><th>Cumulative</th><th>Notes</th><th class="divider"></th><th>Cumulative</th><th>Total</th><th>Bonuses</th>';
-
-                // Team 2 Player Headers
-                roundData.players2.forEach(player => {
-                    printableContent += `<th>${player || 'Player'}</th>`;
-                });
-                printableContent += '</tr>';
-
-                let lastCumulative1 = 0;
-                let lastCumulative2 = 0;
-
-                roundData.scores.forEach(score => {
-                    printableContent += `<tr><td>${score.number}</td>`;
-
-                    // Team 1 Player Scores
-                    score.team1.players.forEach(value => {
-                        printableContent += `<td>${value}</td>`;
-                    });
-
-                    // Team 1 Bonuses
-                     printableContent += `<td>${
-        score.team1.bonuses
-             .map(b => b ? 'Y' : 'N')
-             .join(sep)
-    }</td>`;
-                    printableContent += `<td>${score.team1.total}</td>`;
-                    printableContent += `<td>${score.team1.cumulative}</td>`;
-                    printableContent += `<td>${score.notes || ''}</td>`;
-                    printableContent += '<td class="divider"></td>';
-
-                    // Team 2 Cumulative and Total
-                    printableContent += `<td>${score.team2.cumulative}</td>`;
-                    printableContent += `<td>${score.team2.total}</td>`;
-
-                    // Team 2 Bonuses
-                       // GOOD
-    printableContent += `<td>${
-        score.team2.bonuses
-             .map(b => b ? 'Y' : 'N')
-             .join(sep)
-    }</td>`;
-
-
-                    // Team 2 Player Scores
-                    score.team2.players.forEach(value => {
-                        printableContent += `<td>${value}</td>`;
-                    });
-
-                    printableContent += '</tr>';
-
-                    // Update tournament totals for teams
-                    lastCumulative1 = parseInt(score.team1.cumulative);
-                    lastCumulative2 = parseInt(score.team2.cumulative);
-
-                    // Count bonuses heard and bonus points
-                    if (parseInt(score.team1.total) > 0) {
-                        tournamentTotals.team1.bonusesHeard++;
-                        tournamentTotals.team1.bonusPoints += calculateBonusPoints(score.team1.bonuses);
-                    }
-                    if (parseInt(score.team2.total) > 0) {
-                        tournamentTotals.team2.bonusesHeard++;
-                        tournamentTotals.team2.bonusPoints += calculateBonusPoints(score.team2.bonuses);
-                    }
-                });
-
-                // Update total points after the round
-                tournamentTotals.team1.totalPoints += lastCumulative1;
-                tournamentTotals.team2.totalPoints += lastCumulative2;
-
-                printableContent += '</table><br>';
-            });
-
-            // Calculate averages
-            const roundsPlayed = dataArray.length;
-            const team1PPG = tournamentTotals.team1.totalPoints / roundsPlayed;
-            const team2PPG = tournamentTotals.team2.totalPoints / roundsPlayed;
-
-            const team1PPB = tournamentTotals.team1.bonusesHeard > 0
-                ? (tournamentTotals.team1.bonusPoints / tournamentTotals.team1.bonusesHeard).toFixed(2)
-                : 'N/A';
-            const team2PPB = tournamentTotals.team2.bonusesHeard > 0
-                ? (tournamentTotals.team2.bonusPoints / tournamentTotals.team2.bonusesHeard).toFixed(2)
-                : 'N/A';
-
-            // Tournament Summary
-            printableContent += '<h2>Tournament Summary</h2>';
-            printableContent += '<h3>Team Totals</h3>';
-            printableContent += '<table border="1" cellspacing="0" cellpadding="5">';
-            printableContent += '<tr><th>Team</th><th>Total Powers</th><th>Total Tossups</th><th>Total Negs</th><th>Total Points</th><th>PPG</th><th>PPB</th></tr>';
-            printableContent += `<tr><td>${dataArray[0].team1}</td><td>${tournamentTotals.team1.powers}</td><td>${tournamentTotals.team1.tossups}</td><td>${tournamentTotals.team1.negs}</td><td>${tournamentTotals.team1.totalPoints}</td><td>${team1PPG.toFixed(2)}</td><td>${team1PPB}</td></tr>`;
-            printableContent += `<tr><td>${dataArray[0].team2}</td><td>${tournamentTotals.team2.powers}</td><td>${tournamentTotals.team2.tossups}</td><td>${tournamentTotals.team2.negs}</td><td>${tournamentTotals.team2.totalPoints}</td><td>${team2PPG.toFixed(2)}</td><td>${team2PPB}</td></tr>`;
-            printableContent += '</table>';
-
-            // Player Performance Ranking
-            printableContent += '<h3>Player Performance Ranking</h3>';
-            printableContent += '<table border="1" cellspacing="0" cellpadding="5">';
-            printableContent += '<tr><th>Rank</th><th>Player</th><th>Team</th><th>Total Points</th><th>Powers</th><th>Tossups</th><th>Negs</th></tr>';
-
-            // Calculate total points for each player
-            playerStats.forEach(player => {
-                const powerValue = parseInt(document.getElementById('powerVal').value) || 15;
-                const tossupValue = parseInt(document.getElementById('tossupVal').value) || 10;
-                const negValue = parseInt(document.getElementById('negVal').value) || -5;
-
-                player.totalPoints = (player.powers * powerValue) + (player.tossups * tossupValue) + (player.negs * negValue);
-            });
-
-            // Sort players by total points
-            playerStats.sort((a, b) => b.totalPoints - a.totalPoints);
-
-            // Display player rankings
-            playerStats.forEach((player, index) => {
-                printableContent += `<tr><td>${index + 1}</td><td>${player.name}</td><td>${player.team}</td><td>${player.totalPoints}</td><td>${player.powers}</td><td>${player.tossups}</td><td>${player.negs}</td></tr>`;
-            });
-
-            printableContent += '</table>';
-
-            printableContent += '</body></html>';
-
-            const newWindow = window.open('', '_blank');
-            newWindow.document.write(printableContent);
-            newWindow.document.close();
-            newWindow.print();
-        }
-
-        // Helper function to calculate bonus points
-        function calculateBonusPoints(bonuses) {
-            const bonusValue = parseInt(document.getElementById('bonusVal').value) || 10;
-            return bonuses.filter(b => b).length * bonusValue;
-        }
-
-        // Helper function to update player stats
-        function updatePlayerStats(playerStats, playerName, teamName, powers, tossups, negs) {
-            let player = playerStats.find(p => p.name === playerName && p.team === teamName);
-            if (!player) {
-                player = { name: playerName, team: teamName, powers: 0, tossups: 0, negs: 0, totalPoints: 0 };
-                playerStats.push(player);
-            }
-            player.powers += powers;
-            player.tossups += tossups;
-            player.negs += negs;
-        }
-
-        // Update headers when player names are entered
-        function updateHeaders() {
-            document.getElementById('team1_player1_header').innerText = document.getElementById('player1_1_name').value || 'Player 1';
-            document.getElementById('team1_player2_header').innerText = document.getElementById('player1_2_name').value || 'Player 2';
-            document.getElementById('team1_player3_header').innerText = document.getElementById('player1_3_name').value || 'Player 3';
-            document.getElementById('team1_player4_header').innerText = document.getElementById('player1_4_name').value || 'Player 4';
-
-            document.getElementById('team2_player1_header').innerText = document.getElementById('player2_1_name').value || 'Player 1';
-            document.getElementById('team2_player2_header').innerText = document.getElementById('player2_2_name').value || 'Player 2';
-            document.getElementById('team2_player3_header').innerText = document.getElementById('player2_3_name').value || 'Player 3';
-            document.getElementById('team2_player4_header').innerText = document.getElementById('player2_4_name').value || 'Player 4';
-        }
-
-        // Event listeners for player name inputs
-        document.getElementById('player1_1_name').addEventListener('input', updateHeaders);
-        document.getElementById('player1_2_name').addEventListener('input', updateHeaders);
-        document.getElementById('player1_3_name').addEventListener('input', updateHeaders);
-        document.getElementById('player1_4_name').addEventListener('input', updateHeaders);
-        document.getElementById('player2_1_name').addEventListener('input', updateHeaders);
-        document.getElementById('player2_2_name').addEventListener('input', updateHeaders);
-        document.getElementById('player2_3_name').addEventListener('input', updateHeaders);
-        document.getElementById('player2_4_name').addEventListener('input', updateHeaders);
-   
- // Persist the full tournamentData + pointers into localStorage
-    function saveToLocalStorage() {
-      // this will also push the "current" round into tournamentData
-      saveCurrentRound();
-      localStorage.setItem('tournamentData', JSON.stringify(tournamentData));
-      localStorage.setItem('currentRound', currentRound);
-      localStorage.setItem('currentRoundIndex', currentRoundIndex);
-      localStorage.setItem('playerNames', JSON.stringify(playerNames));
+    function createRound(roundNumber, previousRound) {
+      return {
+        roundNumber,
+        team1: previousRound?.team1 || '',
+        team2: previousRound?.team2 || '',
+        players1: previousRound?.players1 ? [...previousRound.players1] : ['', '', '', ''],
+        players2: previousRound?.players2 ? [...previousRound.players2] : ['', '', '', ''],
+        rows: Array.from({ length: TOSSUP_COUNT }, (_, index) => createRow(index + 1))
+      };
     }
-    
-function copyTournamentStats() {
-  if (!tournamentData.length) {
-    return alert('⚠️ No completed rounds to copy.');
-  }
 
-  const sep    = '\t';
-  const tName  = document.getElementById('tournamentName').value || '';
-  const powerV = +document.getElementById('powerVal').value   || 15;
-  const tossV  = +document.getElementById('tossupVal').value  || 10;
-  const bonusV = +document.getElementById('bonusVal').value   || 10;
-  const negV   = +document.getElementById('negVal').value     || -5;
+    function createRow(number) {
+      return {
+        number,
+        team1: { players: ['none', 'none', 'none', 'none'], bonuses: [false, false, false] },
+        team2: { players: ['none', 'none', 'none', 'none'], bonuses: [false, false, false] },
+        notes: ''
+      };
+    }
 
-  // — accumulate team‐1 totals & playerStats —
-  const tot = { powers:0, tossups:0, negs:0, totalPts:0, bonusPts:0 };
-  let playerStats = [];
+    function normalizeState(state) {
+      if (!state.pointValues) state.pointValues = { power: 15, tossup: 10, bonus: 10, neg: -5 };
+      if (!Array.isArray(state.rounds) || !state.rounds.length) state.rounds = [createRound(1)];
+      state.currentRoundIndex = clamp(Number(state.currentRoundIndex) || 0, 0, state.rounds.length - 1);
+      state.currentQuestion = clamp(Number(state.currentQuestion) || 1, 1, TOSSUP_COUNT);
+      state.activeView = state.activeView || 'current';
+      state.rounds.forEach((round, idx) => {
+        round.roundNumber = round.roundNumber || idx + 1;
+        round.team1 = round.team1 || '';
+        round.team2 = round.team2 || '';
+        round.players1 = normalizePlayers(round.players1);
+        round.players2 = normalizePlayers(round.players2);
+        if (!Array.isArray(round.rows)) round.rows = [];
+        for (let i = 0; i < TOSSUP_COUNT; i++) {
+          if (!round.rows[i]) round.rows[i] = createRow(i + 1);
+          round.rows[i].number = i + 1;
+          TEAM_KEYS.forEach(team => {
+            if (!round.rows[i][team]) round.rows[i][team] = { players: ['none','none','none','none'], bonuses: [false,false,false] };
+            round.rows[i][team].players = normalizeStates(round.rows[i][team].players);
+            round.rows[i][team].bonuses = normalizeBonuses(round.rows[i][team].bonuses);
+          });
+          round.rows[i].notes = round.rows[i].notes || '';
+        }
+      });
+    }
 
-  const roundsPlayed = tournamentData.length;
+    function normalizePlayers(players) {
+      const out = Array.isArray(players) ? players.slice(0, 4) : [];
+      while (out.length < 4) out.push('');
+      return out;
+    }
 
-  tournamentData.forEach(rd => {
-    // total points for that round
-    const last = rd.scores[ rd.scores.length - 1 ];
-    tot.totalPts += +last.team1.cumulative;
+    function normalizeStates(states) {
+      const out = Array.isArray(states) ? states.slice(0, 4).map(s => STATE_ORDER.includes(s) ? s : valueToState(s)) : [];
+      while (out.length < 4) out.push('none');
+      return out;
+    }
 
-    // team1 playerTotals
-    rd.playerTotals1.forEach(p => {
-      tot.powers   += p.powers;
-      tot.tossups += p.tossups;
-      tot.negs     += p.negs;
-      updatePlayerStats(playerStats, p.name, rd.team1, p.powers, p.tossups, p.negs);
-    });
+    function normalizeBonuses(bonuses) {
+      const out = Array.isArray(bonuses) ? bonuses.slice(0, 3).map(Boolean) : [];
+      while (out.length < 3) out.push(false);
+      return out;
+    }
 
-    // bonus points team1
-    rd.scores.forEach(score => {
-      tot.bonusPts += score.team1.bonuses.filter(b => b).length * bonusV;
-    });
-  });
+    function valueToState(value) {
+      const n = Number(value);
+      if (n === app?.pointValues?.power || n === 15) return 'power';
+      if (n === app?.pointValues?.tossup || n === 10) return 'tossup';
+      if (n === app?.pointValues?.neg || n === -5) return 'neg';
+      return 'none';
+    }
 
-  // compute stats
-  const teamName       = tournamentData[0].team1;
-  const ppg            = (tot.totalPts   / roundsPlayed).toFixed(2);
-  const ppb            = (tot.bonusPts    / (tot.powers + tot.tossups)).toFixed(2);
-  const powersPerGame  = (tot.powers      / roundsPlayed).toFixed(2);
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        console.warn('Could not load saved scorekeeper state.', error);
+        return null;
+      }
+    }
 
-  // — build TSV —
-  let csv = '';
+    function saveState(immediate = false) {
+      window.clearTimeout(saveTimer);
+      const doSave = () => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
+        const now = new Date();
+        document.getElementById('autosaveText').textContent = 'Saved ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      };
+      if (immediate) doSave();
+      else saveTimer = window.setTimeout(doSave, 140);
+    }
 
-  // Team1 row with old + new stats:
-  csv += [
-    tName,
-    teamName,
-    tot.powers,
-    tot.tossups,
-    tot.negs,
-    ppg,
-    ppb,
-    powersPerGame
-  ].join(sep) + '\n';
+    function currentRound() { return app.rounds[app.currentRoundIndex]; }
+    function currentRow() { return currentRound().rows[app.currentQuestion - 1]; }
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+    function teamNum(team) { return team === 'team1' ? 1 : 2; }
+    function teamName(round, team) { return (team === 'team1' ? round.team1 : round.team2) || `Team ${teamNum(team)}`; }
+    function teamPlayers(round, team) { return team === 'team1' ? round.players1 : round.players2; }
+    function playerName(round, team, index) { return teamPlayers(round, team)[index] || `Player ${index + 1}`; }
 
-  csv += '\n';
+    function pointsForState(state) {
+      if (state === 'power') return Number(app.pointValues.power) || 0;
+      if (state === 'tossup') return Number(app.pointValues.tossup) || 0;
+      if (state === 'neg') return Number(app.pointValues.neg) || 0;
+      return 0;
+    }
 
-  // Player rows (blank for PPG, PPB & Powers/Game)
-  playerStats
-    .filter(p => p.name.trim() && !/^Player \d+$/.test(p.name))
-    .sort((a, b) => {
-      const aPts = a.powers * powerV + a.tossups * tossV + a.negs * negV;
-      const bPts = b.powers * powerV + b.tossups * tossV + b.negs * negV;
-      return bPts - aPts;
-    })
-    .forEach(p => {
-      csv += [
-        tName,
-        p.name,
-        p.powers,
-        p.tossups,
-        p.negs,
-        '',
-        '',
-        ''
-      ].join(sep) + '\n';
-    });
+    function positiveAnswer(row, team) {
+      return row[team].players.some(s => s === 'power' || s === 'tossup');
+    }
 
-  // copy to clipboard
-  navigator.clipboard.writeText(csv)
-    .then(() => alert('✅ Team 1 stats copied!'))
-    .catch(() => alert('⚠️ Copy failed.'));
-}
+    function tossupPoints(row, team) {
+      return row[team].players.reduce((sum, state) => sum + pointsForState(state), 0);
+    }
 
-function copyTournamentNotes() {
-  // Make sure we’re working with the latest saved data
-  saveCurrentRound();
-  if (!tournamentData.length) {
-    return alert('⚠️ No tournament data available to copy.');
-  }
+    function bonusPoints(row, team) {
+      if (!positiveAnswer(row, team)) return 0;
+      return row[team].bonuses.filter(Boolean).length * (Number(app.pointValues.bonus) || 0);
+    }
 
-  // Gather all non-empty notes
-  const notes = [];
-  tournamentData.forEach(rd => {
-    rd.scores.forEach(score => {
-      const txt = (score.notes || '').trim();
-      if (txt) notes.push(txt.replace(/\r?\n/g, ' '));
-    });
-  });
+    function rowTotal(row, team) {
+      return tossupPoints(row, team) + bonusPoints(row, team);
+    }
 
-  if (!notes.length) {
-    return alert('⚠️ No notes to copy.');
-  }
+    function cumulativeScore(round, team, through = TOSSUP_COUNT) {
+      return round.rows.slice(0, through).reduce((sum, row) => sum + rowTotal(row, team), 0);
+    }
 
-  // Build a single-column TSV: one note per row
-  const csv = notes.join('\n');
+    function roundStats(round, team) {
+      const stats = {
+        team: teamName(round, team),
+        powers: 0,
+        tossups: 0,
+        negs: 0,
+        totalPoints: cumulativeScore(round, team),
+        bonusPoints: 0,
+        bonusesHeard: 0,
+        playerTotals: teamPlayers(round, team).map((name, index) => ({ name: name || `Player ${index + 1}`, powers: 0, tossups: 0, negs: 0, points: 0 }))
+      };
+      round.rows.forEach(row => {
+        row[team].players.forEach((state, index) => {
+          if (state === 'power') { stats.powers++; stats.playerTotals[index].powers++; }
+          if (state === 'tossup') { stats.tossups++; stats.playerTotals[index].tossups++; }
+          if (state === 'neg') { stats.negs++; stats.playerTotals[index].negs++; }
+          stats.playerTotals[index].points += pointsForState(state);
+        });
+        if (positiveAnswer(row, team)) {
+          stats.bonusesHeard++;
+          stats.bonusPoints += bonusPoints(row, team);
+        }
+      });
+      stats.ppb = stats.bonusesHeard ? stats.bonusPoints / stats.bonusesHeard : null;
+      return stats;
+    }
 
-  // Copy to clipboard
-  navigator.clipboard.writeText(csv)
-    .then(() => alert('✅ Tournament notes copied!'))
-    .catch(() => alert('⚠️ Notes copy failed.'));
-}
+    function tournamentStats() {
+      const teams = new Map();
+      const players = new Map();
+      app.rounds.forEach(round => {
+        TEAM_KEYS.forEach(team => {
+          const rs = roundStats(round, team);
+          const tKey = rs.team;
+          if (!teams.has(tKey)) teams.set(tKey, { team: tKey, rounds: 0, powers: 0, tossups: 0, negs: 0, totalPoints: 0, bonusPoints: 0, bonusesHeard: 0 });
+          const t = teams.get(tKey);
+          t.rounds++; t.powers += rs.powers; t.tossups += rs.tossups; t.negs += rs.negs; t.totalPoints += rs.totalPoints; t.bonusPoints += rs.bonusPoints; t.bonusesHeard += rs.bonusesHeard;
+          rs.playerTotals.forEach(p => {
+            if (!p.name.trim() || /^Player \d+$/.test(p.name)) return;
+            const pKey = `${tKey}::${p.name}`;
+            if (!players.has(pKey)) players.set(pKey, { team: tKey, name: p.name, powers: 0, tossups: 0, negs: 0, points: 0 });
+            const player = players.get(pKey);
+            player.powers += p.powers; player.tossups += p.tossups; player.negs += p.negs; player.points += p.points;
+          });
+        });
+      });
+      return { teams: [...teams.values()], players: [...players.values()].sort((a, b) => b.points - a.points) };
+    }
 
-// Before the user navigates away, stash everything
-    window.addEventListener('beforeunload', saveToLocalStorage);
+    function setActiveView(view) {
+      app.activeView = view;
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.view === view));
+      document.querySelectorAll('.view').forEach(panel => panel.classList.toggle('active', panel.id === `view-${view}`));
+      renderDynamicView();
+      saveState();
+    }
 
-    </script>
+    function render() {
+      renderInputs();
+      renderScoreboard();
+      renderRoundNav();
+      renderCurrentQuestion();
+      renderSheet();
+      renderDynamicView();
+      renderLegends();
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.view === app.activeView));
+      document.querySelectorAll('.view').forEach(panel => panel.classList.toggle('active', panel.id === `view-${app.activeView}`));
+      saveState();
+    }
 
+    function renderInputs() {
+      const round = currentRound();
+      setInputValue('tournamentName', app.tournamentName);
+      setInputValue('roomNumber', app.roomNumber);
+      setInputValue('powerVal', app.pointValues.power);
+      setInputValue('tossupVal', app.pointValues.tossup);
+      setInputValue('bonusVal', app.pointValues.bonus);
+      setInputValue('negVal', app.pointValues.neg);
+      setInputValue('team1Name', round.team1);
+      setInputValue('team2Name', round.team2);
+      round.players1.forEach((name, i) => setInputValue(`team1Player${i+1}`, name));
+      round.players2.forEach((name, i) => setInputValue(`team2Player${i+1}`, name));
+    }
+
+    function setInputValue(id, value) {
+      const el = document.getElementById(id);
+      if (document.activeElement !== el) el.value = value ?? '';
+    }
+
+    function renderScoreboard() {
+      const round = currentRound();
+      const s1 = roundStats(round, 'team1');
+      const s2 = roundStats(round, 'team2');
+      document.getElementById('roundDisplay').textContent = `Round ${round.roundNumber}`;
+      document.getElementById('questionDisplay').textContent = `Question ${app.currentQuestion} / ${TOSSUP_COUNT}`;
+      document.getElementById('roomDisplay').textContent = app.roomNumber ? `Room ${app.roomNumber}` : 'Room —';
+      document.getElementById('tournamentDisplay').textContent = app.tournamentName || 'Tournament —';
+      document.getElementById('scoreboardTeam1Name').textContent = s1.team;
+      document.getElementById('scoreboardTeam2Name').textContent = s2.team;
+      document.getElementById('scoreboardTeam1Score').textContent = s1.totalPoints;
+      document.getElementById('scoreboardTeam2Score').textContent = s2.totalPoints;
+      document.getElementById('scoreboardTeam1Detail').textContent = `${s1.powers} powers · ${s1.tossups} tossups · ${s1.negs} negs · PPB ${formatPpb(s1.ppb)}`;
+      document.getElementById('scoreboardTeam2Detail').textContent = `${s2.powers} powers · ${s2.tossups} tossups · ${s2.negs} negs · PPB ${formatPpb(s2.ppb)}`;
+      document.getElementById('scoreboardTeam1').classList.toggle('leader', s1.totalPoints > s2.totalPoints);
+      document.getElementById('scoreboardTeam2').classList.toggle('leader', s2.totalPoints > s1.totalPoints);
+      const leadline = document.getElementById('leadline');
+      if (s1.totalPoints === s2.totalPoints) leadline.textContent = 'The match is tied.';
+      else {
+        const leader = s1.totalPoints > s2.totalPoints ? s1.team : s2.team;
+        const margin = Math.abs(s1.totalPoints - s2.totalPoints);
+        leadline.textContent = `${leader} leads by ${margin}.`;
+      }
+    }
+
+    function formatPpb(ppb) { return ppb == null ? 'N/A' : ppb.toFixed(1); }
+
+    function renderLegends() {
+      document.getElementById('legendPower').textContent = signed(app.pointValues.power);
+      document.getElementById('legendTossup').textContent = signed(app.pointValues.tossup);
+      document.getElementById('legendNeg').textContent = signed(app.pointValues.neg);
+      document.getElementById('legendBonus').textContent = signed(app.pointValues.bonus);
+    }
+
+    function signed(n) { return Number(n) > 0 ? `+${n}` : String(n); }
+
+    function renderRoundNav() {
+      const nav = document.getElementById('roundNav');
+      nav.innerHTML = '';
+      app.rounds.forEach((round, index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'round-pill' + (index === app.currentRoundIndex ? ' active' : '');
+        btn.textContent = `Round ${round.roundNumber}`;
+        btn.addEventListener('click', () => {
+          app.currentRoundIndex = index;
+          app.currentQuestion = clamp(app.currentQuestion, 1, TOSSUP_COUNT);
+          render();
+          toast(`Loaded Round ${round.roundNumber}.`);
+        });
+        nav.appendChild(btn);
+      });
+      const newBtn = document.createElement('button');
+      newBtn.type = 'button';
+      newBtn.className = 'round-pill';
+      newBtn.textContent = '+ New Round';
+      newBtn.addEventListener('click', addNewRound);
+      nav.appendChild(newBtn);
+    }
+
+    function renderCurrentQuestion() {
+      const round = currentRound();
+      const row = currentRow();
+      document.getElementById('currentQuestionTitle').textContent = `Question ${app.currentQuestion}`;
+      document.getElementById('prevQuestionBtn').disabled = app.currentQuestion <= 1;
+      document.getElementById('nextQuestionBtn').disabled = app.currentQuestion >= TOSSUP_COUNT;
+      const notes = document.getElementById('questionNotes');
+      if (document.activeElement !== notes) notes.value = row.notes || '';
+
+      const cards = document.getElementById('teamCards');
+      cards.innerHTML = TEAM_KEYS.map(team => teamCardHtml(round, row, team)).join('');
+      cards.querySelectorAll('[data-score-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const { team, player, state } = btn.dataset;
+          setPlayerState(team, Number(player), state);
+        });
+      });
+      cards.querySelectorAll('[data-cycle-player]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const { team, player } = btn.dataset;
+          cyclePlayerState(team, Number(player));
+        });
+      });
+      cards.querySelectorAll('[data-select-player]').forEach(card => {
+        card.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (button && button.dataset.scoreAction) return;
+          selectedTarget.team = card.dataset.team;
+          selectedTarget.playerIndex = Number(card.dataset.player);
+          renderCurrentQuestion();
+        });
+      });
+      cards.querySelectorAll('[data-bonus]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const { team, bonus } = btn.dataset;
+          toggleBonus(team, Number(bonus));
+        });
+      });
+    }
+
+    function teamCardHtml(round, row, team) {
+      const tNum = teamNum(team);
+      const total = rowTotal(row, team);
+      const cumulative = cumulativeScore(round, team, app.currentQuestion);
+      const bonus = bonusPoints(row, team);
+      const canBonus = positiveAnswer(row, team);
+      return `
+        <article class="score-card team-${tNum}">
+          <div class="card-head">
+            <div>
+              <h3>${escapeHtml(teamName(round, team))}</h3>
+              <div style="color:var(--muted);font-weight:800;margin-top:5px;">This tossup: ${signed(total)} · Cumulative: ${cumulative}</div>
+            </div>
+            <div class="card-totals"><strong>${total}</strong><span>row total</span></div>
+          </div>
+          <div class="players-grid">
+            ${teamPlayers(round, team).map((name, index) => playerCardHtml(round, row, team, index, name)).join('')}
+          </div>
+          <div class="bonus-box">
+            <div class="bonus-top"><span>Bonus: ${bonus} / ${3 * Number(app.pointValues.bonus || 0)}</span><span>${canBonus ? 'Eligible' : 'Needs correct tossup'}</span></div>
+            <div class="bonus-segments">
+              ${row[team].bonuses.map((isOn, index) => `<button type="button" class="bonus-part ${isOn ? 'active' : ''}" data-bonus="${index}" data-team="${team}" ${canBonus ? '' : 'disabled'}>${isOn ? '✓ ' : ''}${app.pointValues.bonus}</button>`).join('')}
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function playerCardHtml(round, row, team, index, name) {
+      const state = row[team].players[index];
+      const selected = selectedTarget.team === team && selectedTarget.playerIndex === index;
+      return `
+        <div class="player-card ${selected ? 'selected' : ''}" data-select-player data-team="${team}" data-player="${index}">
+          <div class="player-line">
+            <span class="player-name">${escapeHtml(name || `Player ${index + 1}`)}</span>
+            <button type="button" class="state-badge" data-state="${state}" data-cycle-player data-team="${team}" data-player="${index}" title="Click to cycle state">${STATE_LABEL[state]}</button>
+          </div>
+          <div class="state-controls">
+            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}">P</button>
+            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}">10</button>
+            <button type="button" class="mini-btn neg" data-score-action data-state="neg" data-team="${team}" data-player="${index}">−5</button>
+            <button type="button" class="mini-btn" data-score-action data-state="none" data-team="${team}" data-player="${index}">Clear</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function setPlayerState(team, playerIndex, state) {
+      const round = currentRound();
+      const row = currentRow();
+      selectedTarget = { team, playerIndex };
+      if (state !== 'none') {
+        row[team].players = row[team].players.map((_, i) => i === playerIndex ? state : 'none');
+      } else {
+        row[team].players[playerIndex] = 'none';
+      }
+      if (!positiveAnswer(row, team)) row[team].bonuses = [false, false, false];
+      toast(`${playerName(round, team, playerIndex)} ${STATE_NAME[state]} for ${teamName(round, team)}.`);
+      render();
+    }
+
+    function cyclePlayerState(team, playerIndex) {
+      const current = currentRow()[team].players[playerIndex];
+      const next = STATE_ORDER[(STATE_ORDER.indexOf(current) + 1) % STATE_ORDER.length];
+      setPlayerState(team, playerIndex, next);
+    }
+
+    function toggleBonus(team, bonusIndex) {
+      const row = currentRow();
+      if (!positiveAnswer(row, team)) {
+        toast('Bonus parts unlock after a correct tossup.');
+        return;
+      }
+      row[team].bonuses[bonusIndex] = !row[team].bonuses[bonusIndex];
+      toast(`${teamName(currentRound(), team)} bonus part ${bonusIndex + 1} ${row[team].bonuses[bonusIndex] ? 'recorded' : 'cleared'}.`);
+      render();
+    }
+
+    function toggleNextBonus(team) {
+      const row = currentRow();
+      if (!positiveAnswer(row, team)) return toast('Select a correct tossup first.');
+      const idx = row[team].bonuses.findIndex(b => !b);
+      if (idx >= 0) toggleBonus(team, idx);
+      else {
+        row[team].bonuses = [false, false, false];
+        toast(`${teamName(currentRound(), team)} bonuses cleared.`);
+        render();
+      }
+    }
+
+    function goQuestion(delta) {
+      app.currentQuestion = clamp(app.currentQuestion + delta, 1, TOSSUP_COUNT);
+      render();
+    }
+
+    function renderSheet() {
+      const round = currentRound();
+      const table = document.getElementById('scoreSheetTable');
+      const p1 = round.players1.map((p, i) => p || `Player ${i+1}`);
+      const p2 = round.players2.map((p, i) => p || `Player ${i+1}`);
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="sticky-col" rowspan="2">TU</th>
+            <th colspan="7" style="background:#1d4ed8;">${escapeHtml(teamName(round, 'team1'))}</th>
+            <th class="divider-cell" rowspan="2"></th>
+            <th colspan="7" style="background:#b45309;">${escapeHtml(teamName(round, 'team2'))}</th>
+            <th rowspan="2">Notes</th>
+          </tr>
+          <tr>
+            ${p1.map(escapeHtml).map(n => `<th>${n}</th>`).join('')}
+            <th>Bonus</th><th>Total</th><th>Score</th>
+            <th>Score</th><th>Total</th><th>Bonus</th>
+            ${p2.map(escapeHtml).map(n => `<th>${n}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${round.rows.map(row => sheetRowHtml(round, row)).join('')}
+        </tbody>
+        <tfoot>
+          ${totalsRowsHtml(round)}
+        </tfoot>
+      `;
+    }
+
+    function sheetRowHtml(round, row) {
+      const active = row.number === app.currentQuestion;
+      const t1Total = rowTotal(row, 'team1');
+      const t2Total = rowTotal(row, 'team2');
+      return `
+        <tr class="${active ? 'active-row' : ''}">
+          <td class="sticky-col">${row.number}</td>
+          ${row.team1.players.map(stateCell).join('')}
+          <td>${bonusDots(row.team1.bonuses)}</td><td>${t1Total}</td><td>${cumulativeScore(round, 'team1', row.number)}</td>
+          <td class="divider-cell"></td>
+          <td>${cumulativeScore(round, 'team2', row.number)}</td><td>${t2Total}</td><td>${bonusDots(row.team2.bonuses)}</td>
+          ${row.team2.players.map(stateCell).join('')}
+          <td style="text-align:left;max-width:260px;white-space:normal;">${escapeHtml(row.notes || '')}</td>
+        </tr>
+      `;
+    }
+
+    function stateCell(state) { return `<td><span class="cell-state ${state}">${STATE_LABEL[state]}</span></td>`; }
+    function bonusDots(bonuses) { return `<span class="bonus-mini">${bonuses.map((b, i) => `<span class="bonus-dot ${b ? 'on' : ''}">${i+1}</span>`).join('')}</span>`; }
+
+    function totalsRowsHtml(round) {
+      const s1 = roundStats(round, 'team1');
+      const s2 = roundStats(round, 'team2');
+      const rows = [
+        ['Powers', 'powers'],
+        ['Tossups', 'tossups'],
+        ['Negs', 'negs']
+      ];
+      return rows.map(([label, key]) => `
+        <tr>
+          <td class="sticky-col">${label}</td>
+          ${s1.playerTotals.map(p => `<td>${p[key]}</td>`).join('')}
+          <td></td><td></td><td></td><td class="divider-cell"></td><td></td><td></td><td></td>
+          ${s2.playerTotals.map(p => `<td>${p[key]}</td>`).join('')}
+          <td></td>
+        </tr>`).join('');
+    }
+
+    function renderDynamicView() {
+      if (app.activeView === 'round') renderRoundSummary();
+      if (app.activeView === 'tournament') renderTournamentSummary();
+    }
+
+    function renderRoundSummary() {
+      const round = currentRound();
+      const s1 = roundStats(round, 'team1');
+      const s2 = roundStats(round, 'team2');
+      const winner = s1.totalPoints === s2.totalPoints ? 'Tie game' : `${s1.totalPoints > s2.totalPoints ? s1.team : s2.team} wins by ${Math.abs(s1.totalPoints - s2.totalPoints)}`;
+      document.getElementById('roundSummary').innerHTML = `
+        ${metric('Result', winner, `Round ${round.roundNumber}`)}
+        ${metric(s1.team, s1.totalPoints, `${s1.powers} powers · PPB ${formatPpb(s1.ppb)}`)}
+        ${metric(s2.team, s2.totalPoints, `${s2.powers} powers · PPB ${formatPpb(s2.ppb)}`)}
+        ${metric('Question', `${app.currentQuestion}/${TOSSUP_COUNT}`, 'Current position')}
+        <div class="chart-card full"><h3>Cumulative score by tossup</h3>${scoreChart(round)}</div>
+        <div class="table-card"><h3>${escapeHtml(s1.team)} players</h3>${playerTable(s1.playerTotals)}</div>
+        <div class="table-card"><h3>${escapeHtml(s2.team)} players</h3>${playerTable(s2.playerTotals)}</div>
+      `;
+    }
+
+    function renderTournamentSummary() {
+      const stats = tournamentStats();
+      const totalRounds = app.rounds.length;
+      const totalQuestions = app.rounds.length * TOSSUP_COUNT;
+      const totalPoints = stats.teams.reduce((sum, t) => sum + t.totalPoints, 0);
+      const bestTeam = stats.teams.slice().sort((a,b) => b.totalPoints - a.totalPoints)[0];
+      document.getElementById('tournamentSummary').innerHTML = `
+        ${metric('Rounds', totalRounds, 'Saved in this tournament')}
+        ${metric('Questions', totalQuestions, 'Scheduled tossups')}
+        ${metric('Total points', totalPoints, 'Both sides combined')}
+        ${metric('Top team', bestTeam ? bestTeam.team : '—', bestTeam ? `${bestTeam.totalPoints} points` : 'No data')}
+        <div class="table-card full"><h3>Team totals</h3>${teamTotalsTable(stats.teams)}</div>
+        <div class="table-card full"><h3>Player rankings</h3>${playerRankingTable(stats.players)}</div>
+      `;
+    }
+
+    function metric(label, value, note) {
+      return `<div class="metric-card"><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(String(value))}</div><div class="metric-note">${escapeHtml(note || '')}</div></div>`;
+    }
+
+    function playerTable(players) {
+      return `<table class="mini-table"><thead><tr><th>Player</th><th>P</th><th>TU</th><th>Neg</th><th>Pts</th></tr></thead><tbody>${players.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.powers}</td><td>${p.tossups}</td><td>${p.negs}</td><td>${p.points}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function teamTotalsTable(teams) {
+      return `<table class="mini-table"><thead><tr><th>Team</th><th>Rounds</th><th>Points</th><th>PPG</th><th>Powers</th><th>TU</th><th>Neg</th><th>PPB</th></tr></thead><tbody>${teams.map(t => `<tr><td>${escapeHtml(t.team)}</td><td>${t.rounds}</td><td>${t.totalPoints}</td><td>${(t.totalPoints / Math.max(1, t.rounds)).toFixed(1)}</td><td>${t.powers}</td><td>${t.tossups}</td><td>${t.negs}</td><td>${t.bonusesHeard ? (t.bonusPoints / t.bonusesHeard).toFixed(1) : 'N/A'}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function playerRankingTable(players) {
+      if (!players.length) return '<p style="color:#64748b;font-weight:800;">No named players yet.</p>';
+      return `<table class="mini-table"><thead><tr><th>Rank</th><th>Player</th><th>Team</th><th>Pts</th><th>P</th><th>TU</th><th>Neg</th></tr></thead><tbody>${players.map((p, i) => `<tr><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.team)}</td><td>${p.points}</td><td>${p.powers}</td><td>${p.tossups}</td><td>${p.negs}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function scoreChart(round) {
+      const width = 780, height = 260, pad = 36;
+      const data1 = round.rows.map(row => cumulativeScore(round, 'team1', row.number));
+      const data2 = round.rows.map(row => cumulativeScore(round, 'team2', row.number));
+      const all = [...data1, ...data2, 0];
+      const min = Math.min(...all), max = Math.max(...all);
+      const span = Math.max(1, max - min);
+      const x = i => pad + (i / (TOSSUP_COUNT - 1)) * (width - pad * 2);
+      const y = v => height - pad - ((v - min) / span) * (height - pad * 2);
+      const pts1 = data1.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+      const pts2 = data2.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+      return `
+        <svg class="svg-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Cumulative score chart">
+          <defs><linearGradient id="gridFade" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#dbeafe" stop-opacity=".65"/></linearGradient></defs>
+          <rect x="0" y="0" width="${width}" height="${height}" fill="url(#gridFade)"/>
+          ${[0,1,2,3,4].map(i => `<line x1="${pad}" x2="${width-pad}" y1="${pad + i*(height-pad*2)/4}" y2="${pad + i*(height-pad*2)/4}" stroke="#cbd5e1" stroke-dasharray="4 5"/>`).join('')}
+          <polyline points="${pts1}" fill="none" stroke="#2563eb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="${pts2}" fill="none" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="${pad}" y="24" fill="#2563eb" font-weight="800">${escapeSvg(teamName(round, 'team1'))}</text>
+          <text x="${width-pad}" y="24" fill="#b45309" text-anchor="end" font-weight="800">${escapeSvg(teamName(round, 'team2'))}</text>
+          <text x="${pad}" y="${height-10}" fill="#64748b" font-size="12">TU 1</text>
+          <text x="${width-pad}" y="${height-10}" fill="#64748b" font-size="12" text-anchor="end">TU ${TOSSUP_COUNT}</text>
+        </svg>
+      `;
+    }
+
+    function addNewRound() {
+      const prev = currentRound();
+      const next = createRound(app.rounds.length + 1, prev);
+      app.rounds.push(next);
+      app.currentRoundIndex = app.rounds.length - 1;
+      app.currentQuestion = 1;
+      render();
+      toast(`Created Round ${next.roundNumber}.`);
+    }
+
+    function showFinishModal() {
+      const round = currentRound();
+      const s1 = roundStats(round, 'team1');
+      const s2 = roundStats(round, 'team2');
+      const result = s1.totalPoints === s2.totalPoints ? 'This round is currently tied.' : `${s1.totalPoints > s2.totalPoints ? s1.team : s2.team} leads by ${Math.abs(s1.totalPoints - s2.totalPoints)}.`;
+      document.getElementById('finishModalBody').innerHTML = `
+        <p style="margin-top:0;color:#475569;font-weight:800;">${escapeHtml(result)} Review the summary before creating the next round.</p>
+        <table class="mini-table"><thead><tr><th>Team</th><th>Score</th><th>Powers</th><th>TU</th><th>Neg</th><th>PPB</th></tr></thead>
+        <tbody>
+          <tr><td>${escapeHtml(s1.team)}</td><td>${s1.totalPoints}</td><td>${s1.powers}</td><td>${s1.tossups}</td><td>${s1.negs}</td><td>${formatPpb(s1.ppb)}</td></tr>
+          <tr><td>${escapeHtml(s2.team)}</td><td>${s2.totalPoints}</td><td>${s2.powers}</td><td>${s2.tossups}</td><td>${s2.negs}</td><td>${formatPpb(s2.ppb)}</td></tr>
+        </tbody></table>
+      `;
+      document.getElementById('finishModal').classList.add('open');
+    }
+
+    function confirmFinishRound() {
+      document.getElementById('finishModal').classList.remove('open');
+      addNewRound();
+    }
+
+    function resetTournament() {
+      if (!confirm('Start a new tournament? This clears the current local tournament data. Export a JSON backup first if you need it.')) return;
+      app = createInitialState();
+      selectedTarget = { team: 'team1', playerIndex: 0 };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
+      render();
+      toast('New tournament started.');
+    }
+
+    function handleInput(event) {
+      const id = event.target.id;
+      const value = event.target.value;
+      const round = currentRound();
+      if (id === 'tournamentName') app.tournamentName = value;
+      if (id === 'roomNumber') app.roomNumber = value;
+      if (id === 'powerVal') app.pointValues.power = Number(value);
+      if (id === 'tossupVal') app.pointValues.tossup = Number(value);
+      if (id === 'bonusVal') app.pointValues.bonus = Number(value);
+      if (id === 'negVal') app.pointValues.neg = Number(value);
+      if (id === 'team1Name') round.team1 = value;
+      if (id === 'team2Name') round.team2 = value;
+      for (let i = 1; i <= 4; i++) {
+        if (id === `team1Player${i}`) round.players1[i-1] = value;
+        if (id === `team2Player${i}`) round.players2[i-1] = value;
+      }
+      renderScoreboard(); renderCurrentQuestion(); renderSheet(); renderDynamicView(); renderLegends(); saveState();
+    }
+
+    function handleNotesInput(event) {
+      currentRow().notes = event.target.value;
+      renderSheet();
+      saveState();
+    }
+
+    function addNotePrefix(prefix) {
+      const notes = document.getElementById('questionNotes');
+      const current = notes.value.trim();
+      notes.value = current ? current + '\n' + prefix : prefix;
+      currentRow().notes = notes.value;
+      notes.focus();
+      saveState();
+      renderSheet();
+    }
+
+    function copyStats() {
+      const stats = tournamentStats();
+      const lines = [];
+      lines.push(['Tournament','Team','Rounds','Powers','Tossups','Negs','Total Points','PPG','PPB'].join('\t'));
+      stats.teams.forEach(t => lines.push([app.tournamentName, t.team, t.rounds, t.powers, t.tossups, t.negs, t.totalPoints, (t.totalPoints/Math.max(1,t.rounds)).toFixed(2), t.bonusesHeard ? (t.bonusPoints/t.bonusesHeard).toFixed(2) : 'N/A'].join('\t')));
+      lines.push('');
+      lines.push(['Tournament','Player','Team','Powers','Tossups','Negs','Points'].join('\t'));
+      stats.players.forEach(p => lines.push([app.tournamentName, p.name, p.team, p.powers, p.tossups, p.negs, p.points].join('\t')));
+      copyText(lines.join('\n'), 'Stats copied as tab-separated values.');
+    }
+
+    function copyNotes() {
+      const lines = [];
+      app.rounds.forEach(round => round.rows.forEach(row => {
+        if ((row.notes || '').trim()) lines.push(`Round ${round.roundNumber}\tQuestion ${row.number}\t${row.notes.replace(/\r?\n/g, ' ')}`);
+      }));
+      if (!lines.length) return toast('No notes to copy.');
+      copyText(lines.join('\n'), 'Tournament notes copied.');
+    }
+
+    function copyText(text, message) {
+      navigator.clipboard.writeText(text).then(() => toast(message)).catch(() => {
+        const area = document.createElement('textarea'); area.value = text; document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove(); toast(message);
+      });
+    }
+
+    function exportBackupJson() {
+      saveState(true);
+      const blob = new Blob([JSON.stringify(app, null, 2)], { type: 'application/json' });
+      const name = `${slug(app.tournamentName || 'naqt-tournament')}-backup.json`;
+      downloadBlob(blob, name);
+      toast('Backup JSON exported.');
+    }
+
+    function importBackupJson(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          normalizeState(data);
+          app = data;
+          render();
+          toast('Backup JSON imported.');
+        } catch (error) {
+          alert('Could not import this JSON backup.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportCurrentRound() { exportPrintable([currentRound()], `Round ${currentRound().roundNumber}`); }
+    function exportTournament() { exportPrintable(app.rounds, app.tournamentName || 'Tournament'); }
+
+    function exportPrintable(rounds, title) {
+      const html = printableHtml(rounds, title);
+      const win = window.open('', '_blank');
+      if (!win) return alert('Please allow pop-ups to print/export.');
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      win.print();
+    }
+
+    function printableHtml(rounds, title) {
+      const styles = `<style>body{font-family:Arial,sans-serif;color:#111;margin:24px}h1,h2,h3{margin-bottom:8px}table{border-collapse:collapse;width:100%;margin:12px 0 22px;font-size:12px}th,td{border:1px solid #999;padding:6px;text-align:center}th{background:#111827;color:white}.left{text-align:left}.summary{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{border:1px solid #ccc;padding:12px;border-radius:10px;margin-bottom:12px}@media print{body{margin:12px}table{font-size:10px}}</style>`;
+      let body = `<h1>${escapeHtml(title)} Export</h1><p>${escapeHtml(app.tournamentName || '')} ${app.roomNumber ? ' · Room ' + escapeHtml(app.roomNumber) : ''}</p>`;
+      rounds.forEach(round => {
+        const s1 = roundStats(round, 'team1'), s2 = roundStats(round, 'team2');
+        body += `<h2>Round ${round.roundNumber}: ${escapeHtml(s1.team)} vs. ${escapeHtml(s2.team)}</h2>`;
+        body += `<div class="summary"><div class="card"><h3>${escapeHtml(s1.team)}</h3><p><strong>${s1.totalPoints}</strong> points · ${s1.powers} powers · ${s1.tossups} tossups · ${s1.negs} negs · PPB ${formatPpb(s1.ppb)}</p></div><div class="card"><h3>${escapeHtml(s2.team)}</h3><p><strong>${s2.totalPoints}</strong> points · ${s2.powers} powers · ${s2.tossups} tossups · ${s2.negs} negs · PPB ${formatPpb(s2.ppb)}</p></div></div>`;
+        body += printableRoundTable(round);
+        body += `<h3>Player Totals</h3><div class="summary"><div>${playerTable(s1.playerTotals)}</div><div>${playerTable(s2.playerTotals)}</div></div>`;
+      });
+      return `<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>${styles}</head><body>${body}</body></html>`;
+    }
+
+    function printableRoundTable(round) {
+      const p1 = round.players1.map((p,i)=>p || `P${i+1}`);
+      const p2 = round.players2.map((p,i)=>p || `P${i+1}`);
+      return `<table><thead><tr><th>TU</th>${p1.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Bonus</th><th>Total</th><th>Score</th><th>Score</th><th>Total</th><th>Bonus</th>${p2.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Notes</th></tr></thead><tbody>${round.rows.map(row => `<tr><td>${row.number}</td>${row.team1.players.map(s=>`<td>${STATE_LABEL[s]}</td>`).join('')}<td>${row.team1.bonuses.map(b=>b?'Y':'N').join('-')}</td><td>${rowTotal(row,'team1')}</td><td>${cumulativeScore(round,'team1',row.number)}</td><td>${cumulativeScore(round,'team2',row.number)}</td><td>${rowTotal(row,'team2')}</td><td>${row.team2.bonuses.map(b=>b?'Y':'N').join('-')}</td>${row.team2.players.map(s=>`<td>${STATE_LABEL[s]}</td>`).join('')}<td class="left">${escapeHtml(row.notes || '')}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    }
+
+    function slug(text) { return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'naqt'; }
+
+    function toast(message) {
+      const wrap = document.getElementById('toast');
+      const el = document.createElement('div');
+      el.className = 'toast-message';
+      el.textContent = message;
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 3100);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
+    }
+    function escapeSvg(value) { return escapeHtml(value); }
+
+    function wireEvents() {
+      ['tournamentName','roomNumber','powerVal','tossupVal','bonusVal','negVal','team1Name','team2Name','team1Player1','team1Player2','team1Player3','team1Player4','team2Player1','team2Player2','team2Player3','team2Player4'].forEach(id => document.getElementById(id).addEventListener('input', handleInput));
+      document.getElementById('questionNotes').addEventListener('input', handleNotesInput);
+      document.querySelectorAll('.chip[data-note]').forEach(chip => chip.addEventListener('click', () => addNotePrefix(chip.dataset.note)));
+      document.getElementById('prevQuestionBtn').addEventListener('click', () => goQuestion(-1));
+      document.getElementById('nextQuestionBtn').addEventListener('click', () => goQuestion(1));
+      document.getElementById('settingsToggleBtn').addEventListener('click', () => document.getElementById('setupPanel').open = !document.getElementById('setupPanel').open);
+      document.getElementById('finishRoundBtn').addEventListener('click', showFinishModal);
+      document.getElementById('cancelFinishBtn').addEventListener('click', () => document.getElementById('finishModal').classList.remove('open'));
+      document.getElementById('confirmFinishBtn').addEventListener('click', confirmFinishRound);
+      document.getElementById('finishModal').addEventListener('click', (e) => { if (e.target.id === 'finishModal') e.currentTarget.classList.remove('open'); });
+      document.getElementById('newTournamentBtn').addEventListener('click', resetTournament);
+      document.getElementById('exportRoundBtn').addEventListener('click', exportCurrentRound);
+      document.getElementById('exportTournamentBtn').addEventListener('click', exportTournament);
+      document.getElementById('printRoundBtn').addEventListener('click', exportCurrentRound);
+      document.getElementById('printSheetBtn').addEventListener('click', () => window.print());
+      document.getElementById('copyStatsBtn').addEventListener('click', copyStats);
+      document.getElementById('copyNotesBtn').addEventListener('click', copyNotes);
+      document.getElementById('backupJsonBtn').addEventListener('click', exportBackupJson);
+      document.getElementById('importJsonBtn').addEventListener('click', () => document.getElementById('importFile').click());
+      document.getElementById('importFile').addEventListener('change', e => importBackupJson(e.target.files[0]));
+      document.getElementById('refreshRoundBtn').addEventListener('click', renderRoundSummary);
+      document.getElementById('refreshTournamentBtn').addEventListener('click', renderTournamentSummary);
+      document.getElementById('jumpCurrentBtn').addEventListener('click', () => {
+        setActiveView('sheet');
+        setTimeout(() => document.querySelector('.active-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+      });
+      document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => setActiveView(tab.dataset.view)));
+      window.addEventListener('beforeunload', () => saveState(true));
+      document.addEventListener('keydown', handleKeyboard);
+    }
+
+    function handleKeyboard(event) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      const typing = ['input','textarea','select'].includes(tag);
+      if (typing) return;
+      if (event.key === 'ArrowRight') { event.preventDefault(); goQuestion(1); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); goQuestion(-1); }
+      const k = event.key.toLowerCase();
+      if (k === 'p') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'power');
+      if (k === 't') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'tossup');
+      if (k === 'n') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'neg');
+      if (k === '0' || k === 'backspace' || k === 'delete') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'none');
+      if (k === 'b') toggleNextBonus(selectedTarget.team);
+    }
+
+    wireEvents();
+    render();
+  </script>
 </body>
 </html>
