@@ -280,6 +280,21 @@
       font-weight: 800;
     }
 
+    .reach-alert {
+      display: none;
+      grid-column: 1 / -1;
+      margin-top: -4px;
+      text-align: center;
+      color: var(--cc-red);
+      font-size: clamp(1rem, 1.5vw, 1.35rem);
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+
+    .reach-alert.show {
+      display: block;
+    }
+
     .panel {
       border-radius: var(--radius-xl);
       background: var(--surface);
@@ -778,13 +793,44 @@
     .cell-state.tossup { background: var(--cc-blue-soft); color: var(--tossup); }
     .cell-state.neg { background: var(--cc-red-soft); color: var(--neg); }
 
+    .sheet-state-select {
+      width: 64px;
+      min-height: 32px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 950;
+      text-align: center;
+      padding: 4px 6px;
+      cursor: pointer;
+    }
+
+    .sheet-state-select.power {
+      background: var(--cc-gold-soft);
+      color: var(--power);
+      border-color: #dec79f;
+    }
+
+    .sheet-state-select.tossup {
+      background: var(--cc-blue-soft);
+      color: var(--tossup);
+      border-color: #b9d2ef;
+    }
+
+    .sheet-state-select.neg {
+      background: var(--cc-red-soft);
+      color: var(--neg);
+      border-color: #ffc2c4;
+    }
+
     .bonus-mini {
       display: inline-flex;
       gap: 4px;
       justify-content: center;
     }
     .bonus-dot {
-      width: 24px;
+      min-width: 34px;
       height: 24px;
       display: grid;
       place-items: center;
@@ -795,6 +841,21 @@
       color: var(--muted);
     }
     .bonus-dot.on { background: var(--cc-gold-soft); color: var(--power); }
+
+    button.bonus-dot {
+      border: 1px solid var(--line);
+      cursor: pointer;
+      padding: 0;
+    }
+
+    button.bonus-dot.on {
+      border-color: #dec79f;
+    }
+
+    button.bonus-dot:disabled {
+      cursor: not-allowed;
+      opacity: .42;
+    }
 
     .panel-header {
       display: flex;
@@ -1006,6 +1067,7 @@
           <div class="big-score" id="scoreboardTeam2Score">0</div>
         </div>
         <div class="leadline" id="leadline">The match is tied.</div>
+        <div class="reach-alert" id="reachAlert" aria-live="polite">Game is out of reach</div>
       </div>
     </section>
 
@@ -1296,6 +1358,7 @@
     function currentRow() { return currentRound().rows[app.currentQuestion - 1]; }
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
     function teamNum(team) { return team === 'team1' ? 1 : 2; }
+    function opponentTeam(team) { return team === 'team1' ? 'team2' : 'team1'; }
     function teamName(round, team) { return (team === 'team1' ? round.team1 : round.team2) || `Team ${teamNum(team)}`; }
     function teamPlayers(round, team) { return team === 'team1' ? round.players1 : round.players2; }
     function playerName(round, team, index) { return teamPlayers(round, team)[index] || `Player ${index + 1}`; }
@@ -1309,6 +1372,18 @@
 
     function positiveAnswer(row, team) {
       return row[team].players.some(s => s === 'power' || s === 'tossup');
+    }
+
+    function positiveState(state) {
+      return state === 'power' || state === 'tossup';
+    }
+
+    function positiveBlocked(row, team, state) {
+      return positiveState(state) && positiveAnswer(row, opponentTeam(team));
+    }
+
+    function positiveBlockedMessage(round, team) {
+      return `${teamName(round, team)} cannot receive a correct tossup because ${teamName(round, opponentTeam(team))} already has one on this question.`;
     }
 
     function tossupPoints(row, team) {
@@ -1326,6 +1401,25 @@
 
     function cumulativeScore(round, team, through = TOSSUP_COUNT) {
       return round.rows.slice(0, through).reduce((sum, row) => sum + rowTotal(row, team), 0);
+    }
+
+    function rowHasPositive(row) {
+      return TEAM_KEYS.some(team => positiveAnswer(row, team));
+    }
+
+    function liveQuestionCount(round) {
+      return round.rows.filter(row => !rowHasPositive(row)).length;
+    }
+
+    function maxComebackSwing(round) {
+      const power = Number(app.pointValues.power) || 0;
+      const bonus = Number(app.pointValues.bonus) || 0;
+      const negPenalty = Math.abs(Number(app.pointValues.neg) || 0);
+      return liveQuestionCount(round) * (power + bonus * 3 + negPenalty);
+    }
+
+    function gameIsOutOfReach(round, lead) {
+      return lead > 0 && maxComebackSwing(round) < lead;
     }
 
     function roundStats(round, team) {
@@ -1434,12 +1528,14 @@
       document.getElementById('scoreboardTeam1').classList.toggle('leader', s1.totalPoints > s2.totalPoints);
       document.getElementById('scoreboardTeam2').classList.toggle('leader', s2.totalPoints > s1.totalPoints);
       const leadline = document.getElementById('leadline');
+      const reachAlert = document.getElementById('reachAlert');
+      const margin = Math.abs(s1.totalPoints - s2.totalPoints);
       if (s1.totalPoints === s2.totalPoints) leadline.textContent = 'The match is tied.';
       else {
         const leader = s1.totalPoints > s2.totalPoints ? s1.team : s2.team;
-        const margin = Math.abs(s1.totalPoints - s2.totalPoints);
         leadline.textContent = `${leader} leads by ${margin}.`;
       }
+      reachAlert.classList.toggle('show', gameIsOutOfReach(round, margin));
     }
 
     function formatPpb(ppb) { return ppb == null ? 'N/A' : ppb.toFixed(1); }
@@ -1548,6 +1644,8 @@
     function playerCardHtml(round, row, team, index, name) {
       const state = row[team].players[index];
       const selected = selectedTarget.team === team && selectedTarget.playerIndex === index;
+      const powerBlocked = positiveBlocked(row, team, 'power');
+      const tossupBlocked = positiveBlocked(row, team, 'tossup');
       return `
         <div class="player-card ${selected ? 'selected' : ''}" data-select-player data-team="${team}" data-player="${index}">
           <div class="player-line">
@@ -1555,8 +1653,8 @@
             <button type="button" class="state-badge" data-state="${state}" data-cycle-player data-team="${team}" data-player="${index}" title="Click to cycle state">${STATE_LABEL[state]}</button>
           </div>
           <div class="state-controls">
-            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}">15</button>
-            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}">10</button>
+            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}" ${powerBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>15</button>
+            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}" ${tossupBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>10</button>
             <button type="button" class="mini-btn neg" data-score-action data-state="neg" data-team="${team}" data-player="${index}">−5</button>
             <button type="button" class="mini-btn" data-score-action data-state="none" data-team="${team}" data-player="${index}">Clear</button>
           </div>
@@ -1567,6 +1665,11 @@
     function setPlayerState(team, playerIndex, state) {
       const round = currentRound();
       const row = currentRow();
+      if (positiveBlocked(row, team, state)) {
+        toast(positiveBlockedMessage(round, team));
+        render();
+        return;
+      }
       selectedTarget = { team, playerIndex };
       if (state !== 'none') {
         row[team].players = row[team].players.map((_, i) => i === playerIndex ? state : 'none');
@@ -1640,6 +1743,18 @@
           ${totalsRowsHtml(round)}
         </tfoot>
       `;
+      table.querySelectorAll('[data-sheet-state]').forEach(select => {
+        select.addEventListener('change', () => {
+          const { question, team, player } = select.dataset;
+          setSheetPlayerState(Number(question), team, Number(player), select.value);
+        });
+      });
+      table.querySelectorAll('[data-sheet-bonus]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const { question, team, bonus } = btn.dataset;
+          toggleSheetBonus(Number(question), team, Number(bonus));
+        });
+      });
     }
 
     function sheetRowHtml(round, row) {
@@ -1649,18 +1764,65 @@
       return `
         <tr class="${active ? 'active-row' : ''}">
           <td class="sticky-col">${row.number}</td>
-          ${row.team1.players.map(stateCell).join('')}
-          <td>${bonusDots(row.team1.bonuses)}</td><td>${t1Total}</td><td>${cumulativeScore(round, 'team1', row.number)}</td>
+          ${row.team1.players.map((state, index) => stateCell(row, 'team1', index, state)).join('')}
+          <td>${bonusDots(row, 'team1')}</td><td>${t1Total}</td><td>${cumulativeScore(round, 'team1', row.number)}</td>
           <td class="divider-cell"></td>
-          <td>${cumulativeScore(round, 'team2', row.number)}</td><td>${t2Total}</td><td>${bonusDots(row.team2.bonuses)}</td>
-          ${row.team2.players.map(stateCell).join('')}
+          <td>${cumulativeScore(round, 'team2', row.number)}</td><td>${t2Total}</td><td>${bonusDots(row, 'team2')}</td>
+          ${row.team2.players.map((state, index) => stateCell(row, 'team2', index, state)).join('')}
           <td style="text-align:left;max-width:260px;white-space:normal;">${escapeHtml(row.notes || '')}</td>
         </tr>
       `;
     }
 
-    function stateCell(state) { return `<td><span class="cell-state ${state}">${STATE_LABEL[state]}</span></td>`; }
-    function bonusDots(bonuses) { return `<span class="bonus-mini">${bonuses.map((b, i) => `<span class="bonus-dot ${b ? 'on' : ''}">${i+1}</span>`).join('')}</span>`; }
+    function stateCell(row, team, playerIndex, state) {
+      return `
+        <td>
+          <select class="sheet-state-select ${state}" data-sheet-state data-question="${row.number}" data-team="${team}" data-player="${playerIndex}" aria-label="Question ${row.number} ${teamName(currentRound(), team)} player ${playerIndex + 1} tossup result">
+            ${STATE_ORDER.map(option => `<option value="${option}" ${option === state ? 'selected' : ''} ${positiveBlocked(row, team, option) && option !== state ? 'disabled' : ''}>${STATE_LABEL[option]}</option>`).join('')}
+          </select>
+        </td>
+      `;
+    }
+
+    function bonusDots(row, team) {
+      const canBonus = positiveAnswer(row, team);
+      const value = Number(app.pointValues.bonus) || 0;
+      return `<span class="bonus-mini">${row[team].bonuses.map((b, i) => `<button type="button" class="bonus-dot ${b ? 'on' : ''}" data-sheet-bonus data-question="${row.number}" data-team="${team}" data-bonus="${i}" ${canBonus ? '' : 'disabled'} title="${canBonus ? `Toggle bonus part ${i + 1}` : 'Select a correct tossup first'}" aria-label="Question ${row.number} ${teamName(currentRound(), team)} bonus part ${i + 1}">${value}</button>`).join('')}</span>`;
+    }
+
+    function setSheetPlayerState(questionNumber, team, playerIndex, state) {
+      const round = currentRound();
+      const row = round.rows[questionNumber - 1];
+      if (!row || !TEAM_KEYS.includes(team) || !STATE_ORDER.includes(state)) return;
+      if (positiveBlocked(row, team, state)) {
+        toast(positiveBlockedMessage(round, team));
+        render();
+        return;
+      }
+      selectedTarget = { team, playerIndex };
+      if (state !== 'none') {
+        row[team].players = row[team].players.map((_, i) => i === playerIndex ? state : 'none');
+      } else {
+        row[team].players[playerIndex] = 'none';
+      }
+      if (!positiveAnswer(row, team)) row[team].bonuses = [false, false, false];
+      render();
+      toast(`Question ${questionNumber}: ${playerName(round, team, playerIndex)} ${STATE_NAME[state]} for ${teamName(round, team)}.`);
+    }
+
+    function toggleSheetBonus(questionNumber, team, bonusIndex) {
+      const round = currentRound();
+      const row = round.rows[questionNumber - 1];
+      if (!row || !TEAM_KEYS.includes(team)) return;
+      if (!positiveAnswer(row, team)) {
+        toast('Select a correct tossup first.');
+        renderSheet();
+        return;
+      }
+      row[team].bonuses[bonusIndex] = !row[team].bonuses[bonusIndex];
+      render();
+      toast(`Question ${questionNumber}: ${teamName(round, team)} bonus part ${bonusIndex + 1} ${row[team].bonuses[bonusIndex] ? 'recorded' : 'cleared'}.`);
+    }
 
     function totalsRowsHtml(round) {
       const s1 = roundStats(round, 'team1');
