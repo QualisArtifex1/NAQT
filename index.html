@@ -1085,7 +1085,10 @@
           </div>
           <div class="field small">
             <label for="powerVal">Power</label>
-            <input id="powerVal" type="number" value="15" />
+            <select id="powerVal">
+              <option value="15">15</option>
+              <option value="20">20</option>
+            </select>
           </div>
           <div class="field small">
             <label for="tossupVal">Tossup</label>
@@ -1172,7 +1175,7 @@
             <div class="panel legend-card">
               <h3>Scoring legend</h3>
               <div class="legend-list">
-                <div class="legend-item"><span><strong style="color:var(--power)">15</strong> Power</span><span id="legendPower">+15</span></div>
+                <div class="legend-item"><span><strong id="legendPowerLabel" style="color:var(--power)">15</strong> Power</span><span id="legendPower">+15</span></div>
                 <div class="legend-item"><span><strong>10</strong> Tossup</span><span id="legendTossup">+10</span></div>
                 <div class="legend-item"><span><strong style="color:var(--neg)">−5</strong> Neg</span><span id="legendNeg">−5</span></div>
                 <div class="legend-item"><span><strong style="color:var(--bonus)">Bonus</strong> each part</span><span id="legendBonus">+10</span></div>
@@ -1240,7 +1243,7 @@
     const STORAGE_KEY = 'naqtScorekeeperPro.v1';
     const TEAM_KEYS = ['team1', 'team2'];
     const STATE_ORDER = ['none', 'power', 'tossup', 'neg'];
-    const STATE_LABEL = { none: '—', power: '15', tossup: '10', neg: '−5' };
+    const STATE_LABEL = { none: '—', tossup: '10', neg: '−5' };
     const STATE_NAME = { none: 'cleared', power: 'power', tossup: 'tossup', neg: 'neg' };
 
     let selectedTarget = { team: 'team1', playerIndex: 0 };
@@ -1281,8 +1284,13 @@
       };
     }
 
+    function normalizePowerValue(value) {
+      return Number(value) === 20 ? 20 : 15;
+    }
+
     function normalizeState(state) {
       if (!state.pointValues) state.pointValues = { power: 15, tossup: 10, bonus: 10, neg: -5 };
+      state.pointValues.power = normalizePowerValue(state.pointValues.power);
       if (!Array.isArray(state.rounds) || !state.rounds.length) state.rounds = [createRound(1)];
       state.currentRoundIndex = clamp(Number(state.currentRoundIndex) || 0, 0, state.rounds.length - 1);
       state.currentQuestion = clamp(Number(state.currentQuestion) || 1, 1, TOSSUP_COUNT);
@@ -1362,6 +1370,17 @@
     function teamName(round, team) { return (team === 'team1' ? round.team1 : round.team2) || `Team ${teamNum(team)}`; }
     function teamPlayers(round, team) { return team === 'team1' ? round.players1 : round.players2; }
     function playerName(round, team, index) { return teamPlayers(round, team)[index] || `Player ${index + 1}`; }
+
+    function displayNumber(value) {
+      return String(value).replace('-', '−');
+    }
+
+    function stateLabel(state) {
+      if (state === 'power') return displayNumber(Number(app.pointValues.power) || 15);
+      if (state === 'tossup') return displayNumber(Number(app.pointValues.tossup) || 0);
+      if (state === 'neg') return displayNumber(Number(app.pointValues.neg) || 0);
+      return STATE_LABEL[state] || '—';
+    }
 
     function pointsForState(state) {
       if (state === 'power') return Number(app.pointValues.power) || 0;
@@ -1541,6 +1560,7 @@
     function formatPpb(ppb) { return ppb == null ? 'N/A' : ppb.toFixed(1); }
 
     function renderLegends() {
+      document.getElementById('legendPowerLabel').textContent = stateLabel('power');
       document.getElementById('legendPower').textContent = signed(app.pointValues.power);
       document.getElementById('legendTossup').textContent = signed(app.pointValues.tossup);
       document.getElementById('legendNeg').textContent = signed(app.pointValues.neg);
@@ -1650,12 +1670,12 @@
         <div class="player-card ${selected ? 'selected' : ''}" data-select-player data-team="${team}" data-player="${index}">
           <div class="player-line">
             <span class="player-name">${escapeHtml(name || `Player ${index + 1}`)}</span>
-            <button type="button" class="state-badge" data-state="${state}" data-cycle-player data-team="${team}" data-player="${index}" title="Click to cycle state">${STATE_LABEL[state]}</button>
+            <button type="button" class="state-badge" data-state="${state}" data-cycle-player data-team="${team}" data-player="${index}" title="Click to cycle state">${stateLabel(state)}</button>
           </div>
           <div class="state-controls">
-            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}" ${powerBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>15</button>
-            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}" ${tossupBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>10</button>
-            <button type="button" class="mini-btn neg" data-score-action data-state="neg" data-team="${team}" data-player="${index}">−5</button>
+            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}" ${powerBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>${stateLabel('power')}</button>
+            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}" ${tossupBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>${stateLabel('tossup')}</button>
+            <button type="button" class="mini-btn neg" data-score-action data-state="neg" data-team="${team}" data-player="${index}">${stateLabel('neg')}</button>
             <button type="button" class="mini-btn" data-score-action data-state="none" data-team="${team}" data-player="${index}">Clear</button>
           </div>
         </div>
@@ -1778,7 +1798,7 @@
       return `
         <td>
           <select class="sheet-state-select ${state}" data-sheet-state data-question="${row.number}" data-team="${team}" data-player="${playerIndex}" aria-label="Question ${row.number} ${teamName(currentRound(), team)} player ${playerIndex + 1} tossup result">
-            ${STATE_ORDER.map(option => `<option value="${option}" ${option === state ? 'selected' : ''} ${positiveBlocked(row, team, option) && option !== state ? 'disabled' : ''}>${STATE_LABEL[option]}</option>`).join('')}
+            ${STATE_ORDER.map(option => `<option value="${option}" ${option === state ? 'selected' : ''} ${positiveBlocked(row, team, option) && option !== state ? 'disabled' : ''}>${stateLabel(option)}</option>`).join('')}
           </select>
         </td>
       `;
@@ -1884,7 +1904,7 @@
     }
 
     function playerTable(players) {
-      return `<table class="mini-table"><thead><tr><th>Player</th><th>15</th><th>TU</th><th>Neg</th><th>Pts</th></tr></thead><tbody>${players.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.powers}</td><td>${p.tossups}</td><td>${p.negs}</td><td>${p.points}</td></tr>`).join('')}</tbody></table>`;
+      return `<table class="mini-table"><thead><tr><th>Player</th><th>${stateLabel('power')}</th><th>TU</th><th>Neg</th><th>Pts</th></tr></thead><tbody>${players.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.powers}</td><td>${p.tossups}</td><td>${p.negs}</td><td>${p.points}</td></tr>`).join('')}</tbody></table>`;
     }
 
     function teamTotalsTable(teams) {
@@ -1893,7 +1913,7 @@
 
     function playerRankingTable(players) {
       if (!players.length) return '<p style="color:var(--muted);font-weight:800;">No named players yet.</p>';
-      return `<table class="mini-table"><thead><tr><th>Rank</th><th>Player</th><th>Team</th><th>Pts</th><th>15</th><th>TU</th><th>Neg</th></tr></thead><tbody>${players.map((p, i) => `<tr><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.team)}</td><td>${p.points}</td><td>${p.powers}</td><td>${p.tossups}</td><td>${p.negs}</td></tr>`).join('')}</tbody></table>`;
+      return `<table class="mini-table"><thead><tr><th>Rank</th><th>Player</th><th>Team</th><th>Pts</th><th>${stateLabel('power')}</th><th>TU</th><th>Neg</th></tr></thead><tbody>${players.map((p, i) => `<tr><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.team)}</td><td>${p.points}</td><td>${p.powers}</td><td>${p.tossups}</td><td>${p.negs}</td></tr>`).join('')}</tbody></table>`;
     }
 
     function scoreChart(round) {
@@ -1968,7 +1988,7 @@
       const round = currentRound();
       if (id === 'tournamentName') app.tournamentName = value;
       if (id === 'roomNumber') app.roomNumber = value;
-      if (id === 'powerVal') app.pointValues.power = Number(value);
+      if (id === 'powerVal') app.pointValues.power = normalizePowerValue(value);
       if (id === 'tossupVal') app.pointValues.tossup = Number(value);
       if (id === 'bonusVal') app.pointValues.bonus = Number(value);
       if (id === 'negVal') app.pointValues.neg = Number(value);
@@ -2077,7 +2097,7 @@
     function printableRoundTable(round) {
       const p1 = round.players1.map((p,i)=>p || `Player ${i+1}`);
       const p2 = round.players2.map((p,i)=>p || `Player ${i+1}`);
-      return `<table><thead><tr><th>TU</th>${p1.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Bonus</th><th>Total</th><th>Score</th><th>Score</th><th>Total</th><th>Bonus</th>${p2.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Notes</th></tr></thead><tbody>${round.rows.map(row => `<tr><td>${row.number}</td>${row.team1.players.map(s=>`<td>${STATE_LABEL[s]}</td>`).join('')}<td>${row.team1.bonuses.map(b=>b?'Y':'N').join('-')}</td><td>${rowTotal(row,'team1')}</td><td>${cumulativeScore(round,'team1',row.number)}</td><td>${cumulativeScore(round,'team2',row.number)}</td><td>${rowTotal(row,'team2')}</td><td>${row.team2.bonuses.map(b=>b?'Y':'N').join('-')}</td>${row.team2.players.map(s=>`<td>${STATE_LABEL[s]}</td>`).join('')}<td class="left">${escapeHtml(row.notes || '')}</td></tr>`).join('')}</tbody></table>`;
+      return `<table><thead><tr><th>TU</th>${p1.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Bonus</th><th>Total</th><th>Score</th><th>Score</th><th>Total</th><th>Bonus</th>${p2.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Notes</th></tr></thead><tbody>${round.rows.map(row => `<tr><td>${row.number}</td>${row.team1.players.map(s=>`<td>${stateLabel(s)}</td>`).join('')}<td>${row.team1.bonuses.map(b=>b?'Y':'N').join('-')}</td><td>${rowTotal(row,'team1')}</td><td>${cumulativeScore(round,'team1',row.number)}</td><td>${cumulativeScore(round,'team2',row.number)}</td><td>${rowTotal(row,'team2')}</td><td>${row.team2.bonuses.map(b=>b?'Y':'N').join('-')}</td>${row.team2.players.map(s=>`<td>${stateLabel(s)}</td>`).join('')}<td class="left">${escapeHtml(row.notes || '')}</td></tr>`).join('')}</tbody></table>`;
     }
 
     function downloadBlob(blob, filename) {
