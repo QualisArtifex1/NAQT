@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NAQT Scorekeeper Pro</title>
+  <title>Quiz Bowl Scorekeeper Pro</title>
   <style>
     :root {
       --cc-blue: #004f9e;
@@ -491,6 +491,27 @@
       font-weight: 800;
     }
 
+    .dead-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 8px 11px;
+      border: 1px solid #ffc2c4;
+      border-radius: 7px;
+      background: var(--cc-red-soft);
+      color: var(--cc-red);
+      cursor: pointer;
+      font-size: .82rem;
+    }
+
+    .dead-toggle input, .sheet-dead-toggle input {
+      width: 17px;
+      height: 17px;
+      margin: 0;
+      accent-color: var(--cc-red);
+    }
+
     .nav-buttons {
       display: flex;
       gap: 10px;
@@ -600,6 +621,7 @@
       grid-template-columns: repeat(4, 1fr);
       gap: 7px;
     }
+    .state-controls.pace { grid-template-columns: repeat(3, 1fr); }
 
     .mini-btn {
       cursor: pointer;
@@ -776,7 +798,27 @@
     tbody tr:nth-child(even) td { background: #fbfdff; }
     tbody tr:hover td { background: var(--cc-blue-soft); }
     tbody tr.active-row td { background: #d9e9fa; }
+    tbody tr.dead-row td {
+      background-color: var(--cc-red-soft);
+      background-image: linear-gradient(to bottom, transparent calc(50% - 1px), var(--cc-red) calc(50% - 1px), var(--cc-red) calc(50% + 1px), transparent calc(50% + 1px));
+    }
     .divider-cell { background: var(--line) !important; width: 10px; min-width: 10px; padding: 0; }
+
+    .sheet-question-cell {
+      display: grid;
+      gap: 5px;
+      justify-items: center;
+    }
+
+    .sheet-dead-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--cc-red);
+      cursor: pointer;
+      font-size: .67rem;
+      text-transform: none;
+    }
 
     .cell-state {
       display: inline-flex;
@@ -1026,8 +1068,8 @@
       <div class="brand">
         <div class="logo">CC</div>
         <div>
-          <h1>NAQT Scorekeeper Pro</h1>
-          <div class="subtitle">Detroit Catholic Central quiz bowl scoring, summaries, and tournament exports.</div>
+          <h1>Quiz Bowl Scorekeeper Pro</h1>
+          <div class="subtitle">Detroit Catholic Central scoring for NAQT and PACE tournaments.</div>
         </div>
       </div>
       <div class="status-strip">
@@ -1083,24 +1125,28 @@
             <label for="roomNumber">Room</label>
             <input id="roomNumber" type="text" placeholder="e.g., 204" />
           </div>
-          <div class="field small">
-            <label for="powerVal">Power</label>
-            <select id="powerVal">
-              <option value="15">15</option>
-              <option value="20">20</option>
+          <div class="field">
+            <label for="formatVal">Tournament format</label>
+            <select id="formatVal">
+              <option value="naqt">NAQT · 24 questions</option>
+              <option value="pace">PACE · 20 questions</option>
             </select>
           </div>
           <div class="field small">
+            <label for="powerVal">Power</label>
+            <input id="powerVal" type="number" value="15" disabled />
+          </div>
+          <div class="field small">
             <label for="tossupVal">Tossup</label>
-            <input id="tossupVal" type="number" value="10" />
+            <input id="tossupVal" type="number" value="10" disabled />
           </div>
           <div class="field small">
             <label for="bonusVal">Bonus part</label>
-            <input id="bonusVal" type="number" value="10" />
+            <input id="bonusVal" type="number" value="10" disabled />
           </div>
           <div class="field small">
             <label for="negVal">Neg</label>
-            <input id="negVal" type="number" value="-5" />
+            <input id="negVal" type="number" value="-5" disabled />
           </div>
 
           <div class="section-title">Team 1</div>
@@ -1152,6 +1198,7 @@
                 <span class="mini">Use labeled scoring buttons or keyboard shortcuts.</span>
               </div>
               <div class="nav-buttons">
+                <label class="dead-toggle"><input id="deadQuestionToggle" type="checkbox" /> Dead question</label>
                 <button class="btn secondary" id="prevQuestionBtn" type="button">← Previous</button>
                 <button class="btn" id="nextQuestionBtn" type="button">Next →</button>
               </div>
@@ -1186,6 +1233,7 @@
               <h3>Keyboard shortcuts</h3>
               <div class="shortcut-list">
                 <div class="shortcut-item"><span>Next / previous</span><span><kbd>→</kbd> <kbd>←</kbd></span></div>
+                <div class="shortcut-item"><span>Next question</span><span><kbd>Enter</kbd></span></div>
                 <div class="shortcut-item"><span>Selected player state</span><span><kbd>P</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>0</kbd></span></div>
                 <div class="shortcut-item"><span>Toggle next bonus for selected team</span><span><kbd>B</kbd></span></div>
               </div>
@@ -1199,7 +1247,8 @@
           <div class="panel-header">
             <h2>Full score sheet</h2>
             <div class="reports-row">
-              <button class="btn light" id="jumpCurrentBtn" type="button">Jump to Current Question</button>
+              <button class="btn light" id="sheetPrevQuestionBtn" type="button">← Previous Question</button>
+              <button class="btn" id="sheetNextQuestionBtn" type="button">Next Question →</button>
               <button class="btn light" id="printSheetBtn" type="button">Print</button>
             </div>
           </div>
@@ -1239,12 +1288,16 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const TOSSUP_COUNT = 24;
+    const MAX_TOSSUP_COUNT = 24;
     const STORAGE_KEY = 'naqtScorekeeperPro.v1';
     const TEAM_KEYS = ['team1', 'team2'];
     const STATE_ORDER = ['none', 'power', 'tossup', 'neg'];
     const STATE_LABEL = { none: '—', tossup: '10', neg: '−5' };
     const STATE_NAME = { none: 'cleared', power: 'power', tossup: 'tossup', neg: 'neg' };
+    const FORMAT_RULES = {
+      naqt: { label: 'NAQT', power: 15, tossup: 10, bonus: 10, neg: -5, questions: 24 },
+      pace: { label: 'PACE', power: 20, tossup: 10, bonus: 10, neg: 0, questions: 20 }
+    };
 
     let selectedTarget = { team: 'team1', playerIndex: 0 };
     let saveTimer = null;
@@ -1256,6 +1309,7 @@
       return {
         tournamentName: '',
         roomNumber: '',
+        format: 'naqt',
         pointValues: { power: 15, tossup: 10, bonus: 10, neg: -5 },
         currentRoundIndex: 0,
         currentQuestion: 1,
@@ -1271,7 +1325,7 @@
         team2: previousRound?.team2 || '',
         players1: previousRound?.players1 ? [...previousRound.players1] : ['', '', '', ''],
         players2: previousRound?.players2 ? [...previousRound.players2] : ['', '', '', ''],
-        rows: Array.from({ length: TOSSUP_COUNT }, (_, index) => createRow(index + 1))
+        rows: Array.from({ length: MAX_TOSSUP_COUNT }, (_, index) => createRow(index + 1))
       };
     }
 
@@ -1280,20 +1334,19 @@
         number,
         team1: { players: ['none', 'none', 'none', 'none'], bonuses: [false, false, false] },
         team2: { players: ['none', 'none', 'none', 'none'], bonuses: [false, false, false] },
+        dead: false,
         notes: ''
       };
     }
 
-    function normalizePowerValue(value) {
-      return Number(value) === 20 ? 20 : 15;
-    }
-
     function normalizeState(state) {
-      if (!state.pointValues) state.pointValues = { power: 15, tossup: 10, bonus: 10, neg: -5 };
-      state.pointValues.power = normalizePowerValue(state.pointValues.power);
+      state.format = FORMAT_RULES[state.format] ? state.format : (Number(state.pointValues?.power) === 20 ? 'pace' : 'naqt');
+      state.pointValues = { ...FORMAT_RULES[state.format] };
+      delete state.pointValues.label;
+      delete state.pointValues.questions;
       if (!Array.isArray(state.rounds) || !state.rounds.length) state.rounds = [createRound(1)];
       state.currentRoundIndex = clamp(Number(state.currentRoundIndex) || 0, 0, state.rounds.length - 1);
-      state.currentQuestion = clamp(Number(state.currentQuestion) || 1, 1, TOSSUP_COUNT);
+      state.currentQuestion = clamp(Number(state.currentQuestion) || 1, 1, FORMAT_RULES[state.format].questions);
       state.activeView = state.activeView || 'current';
       state.rounds.forEach((round, idx) => {
         round.roundNumber = round.roundNumber || idx + 1;
@@ -1302,12 +1355,14 @@
         round.players1 = normalizePlayers(round.players1);
         round.players2 = normalizePlayers(round.players2);
         if (!Array.isArray(round.rows)) round.rows = [];
-        for (let i = 0; i < TOSSUP_COUNT; i++) {
+        for (let i = 0; i < MAX_TOSSUP_COUNT; i++) {
           if (!round.rows[i]) round.rows[i] = createRow(i + 1);
           round.rows[i].number = i + 1;
+          round.rows[i].dead = Boolean(round.rows[i].dead);
           TEAM_KEYS.forEach(team => {
             if (!round.rows[i][team]) round.rows[i][team] = { players: ['none','none','none','none'], bonuses: [false,false,false] };
             round.rows[i][team].players = normalizeStates(round.rows[i][team].players);
+            if (state.format === 'pace') round.rows[i][team].players = round.rows[i][team].players.map(playerState => playerState === 'neg' ? 'none' : playerState);
             round.rows[i][team].bonuses = normalizeBonuses(round.rows[i][team].bonuses);
           });
           round.rows[i].notes = round.rows[i].notes || '';
@@ -1335,7 +1390,7 @@
 
     function valueToState(value) {
       const n = Number(value);
-      if (n === app?.pointValues?.power || n === 15) return 'power';
+      if (n === app?.pointValues?.power || n === 15 || n === 20) return 'power';
       if (n === app?.pointValues?.tossup || n === 10) return 'tossup';
       if (n === app?.pointValues?.neg || n === -5) return 'neg';
       return 'none';
@@ -1364,6 +1419,10 @@
 
     function currentRound() { return app.rounds[app.currentRoundIndex]; }
     function currentRow() { return currentRound().rows[app.currentQuestion - 1]; }
+    function formatRules() { return FORMAT_RULES[app.format] || FORMAT_RULES.naqt; }
+    function tossupCount() { return formatRules().questions; }
+    function activeRows(round) { return round.rows.slice(0, tossupCount()); }
+    function availableStates() { return app.format === 'pace' ? STATE_ORDER.filter(state => state !== 'neg') : STATE_ORDER; }
     function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
     function teamNum(team) { return team === 'team1' ? 1 : 2; }
     function opponentTeam(team) { return team === 'team1' ? 'team2' : 'team1'; }
@@ -1415,11 +1474,12 @@
     }
 
     function rowTotal(row, team) {
+      if (row.dead) return 0;
       return tossupPoints(row, team) + bonusPoints(row, team);
     }
 
-    function cumulativeScore(round, team, through = TOSSUP_COUNT) {
-      return round.rows.slice(0, through).reduce((sum, row) => sum + rowTotal(row, team), 0);
+    function cumulativeScore(round, team, through = tossupCount()) {
+      return activeRows(round).slice(0, through).reduce((sum, row) => sum + rowTotal(row, team), 0);
     }
 
     function rowHasPositive(row) {
@@ -1427,7 +1487,7 @@
     }
 
     function liveQuestionCount(round) {
-      return round.rows.filter(row => !rowHasPositive(row)).length;
+      return activeRows(round).filter(row => !row.dead && !rowHasPositive(row)).length;
     }
 
     function maxComebackSwing(round) {
@@ -1452,7 +1512,8 @@
         bonusesHeard: 0,
         playerTotals: teamPlayers(round, team).map((name, index) => ({ name: name || `Player ${index + 1}`, powers: 0, tossups: 0, negs: 0, points: 0 }))
       };
-      round.rows.forEach(row => {
+      activeRows(round).forEach(row => {
+        if (row.dead) return;
         row[team].players.forEach((state, index) => {
           if (state === 'power') { stats.powers++; stats.playerTotals[index].powers++; }
           if (state === 'tossup') { stats.tossups++; stats.playerTotals[index].tossups++; }
@@ -1515,6 +1576,7 @@
       const round = currentRound();
       setInputValue('tournamentName', app.tournamentName);
       setInputValue('roomNumber', app.roomNumber);
+      setInputValue('formatVal', app.format);
       setInputValue('powerVal', app.pointValues.power);
       setInputValue('tossupVal', app.pointValues.tossup);
       setInputValue('bonusVal', app.pointValues.bonus);
@@ -1535,15 +1597,15 @@
       const s1 = roundStats(round, 'team1');
       const s2 = roundStats(round, 'team2');
       document.getElementById('roundDisplay').textContent = `Round ${round.roundNumber}`;
-      document.getElementById('questionDisplay').textContent = `Question ${app.currentQuestion} / ${TOSSUP_COUNT}`;
+      document.getElementById('questionDisplay').textContent = `${formatRules().label} · Question ${app.currentQuestion} / ${tossupCount()}`;
       document.getElementById('roomDisplay').textContent = app.roomNumber ? `Room ${app.roomNumber}` : 'Room —';
       document.getElementById('tournamentDisplay').textContent = app.tournamentName || 'Tournament —';
       document.getElementById('scoreboardTeam1Name').textContent = s1.team;
       document.getElementById('scoreboardTeam2Name').textContent = s2.team;
       document.getElementById('scoreboardTeam1Score').textContent = s1.totalPoints;
       document.getElementById('scoreboardTeam2Score').textContent = s2.totalPoints;
-      document.getElementById('scoreboardTeam1Detail').textContent = `${s1.powers} powers · ${s1.tossups} tossups · ${s1.negs} negs · PPB ${formatPpb(s1.ppb)}`;
-      document.getElementById('scoreboardTeam2Detail').textContent = `${s2.powers} powers · ${s2.tossups} tossups · ${s2.negs} negs · PPB ${formatPpb(s2.ppb)}`;
+      document.getElementById('scoreboardTeam1Detail').textContent = scoreboardDetail(s1);
+      document.getElementById('scoreboardTeam2Detail').textContent = scoreboardDetail(s2);
       document.getElementById('scoreboardTeam1').classList.toggle('leader', s1.totalPoints > s2.totalPoints);
       document.getElementById('scoreboardTeam2').classList.toggle('leader', s2.totalPoints > s1.totalPoints);
       const leadline = document.getElementById('leadline');
@@ -1558,6 +1620,9 @@
     }
 
     function formatPpb(ppb) { return ppb == null ? 'N/A' : ppb.toFixed(1); }
+    function scoreboardDetail(stats) {
+      return `${stats.powers} powers · ${stats.tossups} tossups${app.format === 'naqt' ? ` · ${stats.negs} negs` : ''} · PPB ${formatPpb(stats.ppb)}`;
+    }
 
     function renderLegends() {
       document.getElementById('legendPowerLabel').textContent = stateLabel('power');
@@ -1565,6 +1630,7 @@
       document.getElementById('legendTossup').textContent = signed(app.pointValues.tossup);
       document.getElementById('legendNeg').textContent = signed(app.pointValues.neg);
       document.getElementById('legendBonus').textContent = signed(app.pointValues.bonus);
+      document.getElementById('legendNeg').closest('.legend-item').style.display = app.format === 'pace' ? 'none' : '';
     }
 
     function signed(n) { return Number(n) > 0 ? `+${n}` : String(n); }
@@ -1579,7 +1645,7 @@
         btn.textContent = `Round ${round.roundNumber}`;
         btn.addEventListener('click', () => {
           app.currentRoundIndex = index;
-          app.currentQuestion = clamp(app.currentQuestion, 1, TOSSUP_COUNT);
+          app.currentQuestion = clamp(app.currentQuestion, 1, tossupCount());
           render();
           toast(`Loaded Round ${round.roundNumber}.`);
         });
@@ -1598,7 +1664,8 @@
       const row = currentRow();
       document.getElementById('currentQuestionTitle').textContent = `Question ${app.currentQuestion}`;
       document.getElementById('prevQuestionBtn').disabled = app.currentQuestion <= 1;
-      document.getElementById('nextQuestionBtn').disabled = app.currentQuestion >= TOSSUP_COUNT;
+      document.getElementById('nextQuestionBtn').disabled = app.currentQuestion >= tossupCount();
+      document.getElementById('deadQuestionToggle').checked = row.dead;
       const notes = document.getElementById('questionNotes');
       if (document.activeElement !== notes) notes.value = row.notes || '';
 
@@ -1654,7 +1721,7 @@
           <div class="bonus-box">
             <div class="bonus-top"><span>Bonus: ${bonus} / ${3 * Number(app.pointValues.bonus || 0)}</span><span>${canBonus ? 'Eligible' : 'Needs correct tossup'}</span></div>
             <div class="bonus-segments">
-              ${row[team].bonuses.map((isOn, index) => `<button type="button" class="bonus-part ${isOn ? 'active' : ''}" data-bonus="${index}" data-team="${team}" ${canBonus ? '' : 'disabled'}>${isOn ? '✓ ' : ''}${app.pointValues.bonus}</button>`).join('')}
+              ${row[team].bonuses.map((isOn, index) => `<button type="button" class="bonus-part ${isOn ? 'active' : ''}" data-bonus="${index}" data-team="${team}" ${canBonus && !row.dead ? '' : 'disabled'}>${isOn ? '✓ ' : ''}${app.pointValues.bonus}</button>`).join('')}
             </div>
           </div>
         </article>
@@ -1666,17 +1733,18 @@
       const selected = selectedTarget.team === team && selectedTarget.playerIndex === index;
       const powerBlocked = positiveBlocked(row, team, 'power');
       const tossupBlocked = positiveBlocked(row, team, 'tossup');
+      const deadDisabled = row.dead ? 'disabled title="This question is marked dead."' : '';
       return `
         <div class="player-card ${selected ? 'selected' : ''}" data-select-player data-team="${team}" data-player="${index}">
           <div class="player-line">
             <span class="player-name">${escapeHtml(name || `Player ${index + 1}`)}</span>
-            <button type="button" class="state-badge" data-state="${state}" data-cycle-player data-team="${team}" data-player="${index}" title="Click to cycle state">${stateLabel(state)}</button>
+            <button type="button" class="state-badge" data-state="${state}" data-cycle-player data-team="${team}" data-player="${index}" ${deadDisabled || 'title="Click to cycle state"'}>${stateLabel(state)}</button>
           </div>
-          <div class="state-controls">
-            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}" ${powerBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>${stateLabel('power')}</button>
-            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}" ${tossupBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : ''}>${stateLabel('tossup')}</button>
-            <button type="button" class="mini-btn neg" data-score-action data-state="neg" data-team="${team}" data-player="${index}">${stateLabel('neg')}</button>
-            <button type="button" class="mini-btn" data-score-action data-state="none" data-team="${team}" data-player="${index}">Clear</button>
+          <div class="state-controls ${app.format}">
+            <button type="button" class="mini-btn power" data-score-action data-state="power" data-team="${team}" data-player="${index}" ${deadDisabled || (powerBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : '')}>${stateLabel('power')}</button>
+            <button type="button" class="mini-btn tossup" data-score-action data-state="tossup" data-team="${team}" data-player="${index}" ${deadDisabled || (tossupBlocked ? `disabled title="${escapeHtml(positiveBlockedMessage(round, team))}"` : '')}>${stateLabel('tossup')}</button>
+            ${app.format === 'naqt' ? `<button type="button" class="mini-btn neg" data-score-action data-state="neg" data-team="${team}" data-player="${index}" ${deadDisabled}>${stateLabel('neg')}</button>` : ''}
+            <button type="button" class="mini-btn" data-score-action data-state="none" data-team="${team}" data-player="${index}" ${deadDisabled}>Clear</button>
           </div>
         </div>
       `;
@@ -1685,6 +1753,8 @@
     function setPlayerState(team, playerIndex, state) {
       const round = currentRound();
       const row = currentRow();
+      if (row.dead) return toast('This question is marked dead.');
+      if (!availableStates().includes(state)) return toast('Negs are not used in PACE.');
       if (positiveBlocked(row, team, state)) {
         toast(positiveBlockedMessage(round, team));
         render();
@@ -1703,12 +1773,14 @@
 
     function cyclePlayerState(team, playerIndex) {
       const current = currentRow()[team].players[playerIndex];
-      const next = STATE_ORDER[(STATE_ORDER.indexOf(current) + 1) % STATE_ORDER.length];
+      const states = availableStates();
+      const next = states[(states.indexOf(current) + 1) % states.length];
       setPlayerState(team, playerIndex, next);
     }
 
     function toggleBonus(team, bonusIndex) {
       const row = currentRow();
+      if (row.dead) return toast('This question is marked dead.');
       if (!positiveAnswer(row, team)) {
         toast('Bonus parts unlock after a correct tossup.');
         return;
@@ -1720,6 +1792,7 @@
 
     function toggleNextBonus(team) {
       const row = currentRow();
+      if (row.dead) return toast('This question is marked dead.');
       if (!positiveAnswer(row, team)) return toast('Select a correct tossup first.');
       const idx = row[team].bonuses.findIndex(b => !b);
       if (idx >= 0) toggleBonus(team, idx);
@@ -1731,13 +1804,15 @@
     }
 
     function goQuestion(delta) {
-      app.currentQuestion = clamp(app.currentQuestion + delta, 1, TOSSUP_COUNT);
+      app.currentQuestion = clamp(app.currentQuestion + delta, 1, tossupCount());
       render();
     }
 
     function renderSheet() {
       const round = currentRound();
       const table = document.getElementById('scoreSheetTable');
+      document.getElementById('sheetPrevQuestionBtn').disabled = app.currentQuestion <= 1;
+      document.getElementById('sheetNextQuestionBtn').disabled = app.currentQuestion >= tossupCount();
       const p1 = round.players1.map((p, i) => p || `Player ${i+1}`);
       const p2 = round.players2.map((p, i) => p || `Player ${i+1}`);
       table.innerHTML = `
@@ -1757,7 +1832,7 @@
           </tr>
         </thead>
         <tbody>
-          ${round.rows.map(row => sheetRowHtml(round, row)).join('')}
+          ${activeRows(round).map(row => sheetRowHtml(round, row)).join('')}
         </tbody>
         <tfoot>
           ${totalsRowsHtml(round)}
@@ -1775,6 +1850,9 @@
           toggleSheetBonus(Number(question), team, Number(bonus));
         });
       });
+      table.querySelectorAll('[data-sheet-dead]').forEach(input => {
+        input.addEventListener('change', () => setDeadQuestion(Number(input.dataset.question), input.checked));
+      });
     }
 
     function sheetRowHtml(round, row) {
@@ -1782,8 +1860,8 @@
       const t1Total = rowTotal(row, 'team1');
       const t2Total = rowTotal(row, 'team2');
       return `
-        <tr class="${active ? 'active-row' : ''}">
-          <td class="sticky-col">${row.number}</td>
+        <tr class="${active ? 'active-row ' : ''}${row.dead ? 'dead-row' : ''}">
+          <td class="sticky-col"><div class="sheet-question-cell"><span>${row.number}</span><label class="sheet-dead-toggle"><input type="checkbox" data-sheet-dead data-question="${row.number}" ${row.dead ? 'checked' : ''} /> Dead</label></div></td>
           ${row.team1.players.map((state, index) => stateCell(row, 'team1', index, state)).join('')}
           <td>${bonusDots(row, 'team1')}</td><td>${t1Total}</td><td>${cumulativeScore(round, 'team1', row.number)}</td>
           <td class="divider-cell"></td>
@@ -1797,8 +1875,8 @@
     function stateCell(row, team, playerIndex, state) {
       return `
         <td>
-          <select class="sheet-state-select ${state}" data-sheet-state data-question="${row.number}" data-team="${team}" data-player="${playerIndex}" aria-label="Question ${row.number} ${teamName(currentRound(), team)} player ${playerIndex + 1} tossup result">
-            ${STATE_ORDER.map(option => `<option value="${option}" ${option === state ? 'selected' : ''} ${positiveBlocked(row, team, option) && option !== state ? 'disabled' : ''}>${stateLabel(option)}</option>`).join('')}
+          <select class="sheet-state-select ${state}" data-sheet-state data-question="${row.number}" data-team="${team}" data-player="${playerIndex}" ${row.dead ? 'disabled' : ''} aria-label="Question ${row.number} ${teamName(currentRound(), team)} player ${playerIndex + 1} tossup result">
+            ${availableStates().map(option => `<option value="${option}" ${option === state ? 'selected' : ''} ${positiveBlocked(row, team, option) && option !== state ? 'disabled' : ''}>${stateLabel(option)}</option>`).join('')}
           </select>
         </td>
       `;
@@ -1807,13 +1885,13 @@
     function bonusDots(row, team) {
       const canBonus = positiveAnswer(row, team);
       const value = Number(app.pointValues.bonus) || 0;
-      return `<span class="bonus-mini">${row[team].bonuses.map((b, i) => `<button type="button" class="bonus-dot ${b ? 'on' : ''}" data-sheet-bonus data-question="${row.number}" data-team="${team}" data-bonus="${i}" ${canBonus ? '' : 'disabled'} title="${canBonus ? `Toggle bonus part ${i + 1}` : 'Select a correct tossup first'}" aria-label="Question ${row.number} ${teamName(currentRound(), team)} bonus part ${i + 1}">${value}</button>`).join('')}</span>`;
+      return `<span class="bonus-mini">${row[team].bonuses.map((b, i) => `<button type="button" class="bonus-dot ${b ? 'on' : ''}" data-sheet-bonus data-question="${row.number}" data-team="${team}" data-bonus="${i}" ${canBonus && !row.dead ? '' : 'disabled'} title="${canBonus && !row.dead ? `Toggle bonus part ${i + 1}` : 'Select a live correct tossup first'}" aria-label="Question ${row.number} ${teamName(currentRound(), team)} bonus part ${i + 1}">${value}</button>`).join('')}</span>`;
     }
 
     function setSheetPlayerState(questionNumber, team, playerIndex, state) {
       const round = currentRound();
       const row = round.rows[questionNumber - 1];
-      if (!row || !TEAM_KEYS.includes(team) || !STATE_ORDER.includes(state)) return;
+      if (!row || row.dead || !TEAM_KEYS.includes(team) || !availableStates().includes(state)) return;
       if (positiveBlocked(row, team, state)) {
         toast(positiveBlockedMessage(round, team));
         render();
@@ -1833,7 +1911,7 @@
     function toggleSheetBonus(questionNumber, team, bonusIndex) {
       const round = currentRound();
       const row = round.rows[questionNumber - 1];
-      if (!row || !TEAM_KEYS.includes(team)) return;
+      if (!row || row.dead || !TEAM_KEYS.includes(team)) return;
       if (!positiveAnswer(row, team)) {
         toast('Select a correct tossup first.');
         renderSheet();
@@ -1842,6 +1920,22 @@
       row[team].bonuses[bonusIndex] = !row[team].bonuses[bonusIndex];
       render();
       toast(`Question ${questionNumber}: ${teamName(round, team)} bonus part ${bonusIndex + 1} ${row[team].bonuses[bonusIndex] ? 'recorded' : 'cleared'}.`);
+    }
+
+    function clearRowScores(row) {
+      TEAM_KEYS.forEach(team => {
+        row[team].players = ['none', 'none', 'none', 'none'];
+        row[team].bonuses = [false, false, false];
+      });
+    }
+
+    function setDeadQuestion(questionNumber, dead) {
+      const row = currentRound().rows[questionNumber - 1];
+      if (!row) return;
+      row.dead = dead;
+      if (dead) clearRowScores(row);
+      render();
+      toast(`Question ${questionNumber} marked ${dead ? 'dead' : 'live'}.`);
     }
 
     function totalsRowsHtml(round) {
@@ -1876,7 +1970,7 @@
         ${metric('Result', winner, `Round ${round.roundNumber}`)}
         ${metric(s1.team, s1.totalPoints, `${s1.powers} powers · PPB ${formatPpb(s1.ppb)}`)}
         ${metric(s2.team, s2.totalPoints, `${s2.powers} powers · PPB ${formatPpb(s2.ppb)}`)}
-        ${metric('Question', `${app.currentQuestion}/${TOSSUP_COUNT}`, 'Current position')}
+        ${metric('Question', `${app.currentQuestion}/${tossupCount()}`, `${formatRules().label} current position`)}
         <div class="chart-card full"><h3>Cumulative score by tossup</h3>${scoreChart(round)}</div>
         <div class="table-card"><h3>${escapeHtml(s1.team)} players</h3>${playerTable(s1.playerTotals)}</div>
         <div class="table-card"><h3>${escapeHtml(s2.team)} players</h3>${playerTable(s2.playerTotals)}</div>
@@ -1886,7 +1980,7 @@
     function renderTournamentSummary() {
       const stats = tournamentStats();
       const totalRounds = app.rounds.length;
-      const totalQuestions = app.rounds.length * TOSSUP_COUNT;
+      const totalQuestions = app.rounds.length * tossupCount();
       const totalPoints = stats.teams.reduce((sum, t) => sum + t.totalPoints, 0);
       const bestTeam = stats.teams.slice().sort((a,b) => b.totalPoints - a.totalPoints)[0];
       document.getElementById('tournamentSummary').innerHTML = `
@@ -1918,12 +2012,13 @@
 
     function scoreChart(round) {
       const width = 780, height = 260, pad = 36;
-      const data1 = round.rows.map(row => cumulativeScore(round, 'team1', row.number));
-      const data2 = round.rows.map(row => cumulativeScore(round, 'team2', row.number));
+      const rows = activeRows(round);
+      const data1 = rows.map(row => cumulativeScore(round, 'team1', row.number));
+      const data2 = rows.map(row => cumulativeScore(round, 'team2', row.number));
       const all = [...data1, ...data2, 0];
       const min = Math.min(...all), max = Math.max(...all);
       const span = Math.max(1, max - min);
-      const x = i => pad + (i / (TOSSUP_COUNT - 1)) * (width - pad * 2);
+      const x = i => pad + (i / Math.max(1, tossupCount() - 1)) * (width - pad * 2);
       const y = v => height - pad - ((v - min) / span) * (height - pad * 2);
       const pts1 = data1.map((v, i) => `${x(i)},${y(v)}`).join(' ');
       const pts2 = data2.map((v, i) => `${x(i)},${y(v)}`).join(' ');
@@ -1937,7 +2032,7 @@
           <text x="${pad}" y="24" fill="#004f9e" font-weight="800">${escapeSvg(teamName(round, 'team1'))}</text>
           <text x="${width-pad}" y="24" fill="#8f6c32" text-anchor="end" font-weight="800">${escapeSvg(teamName(round, 'team2'))}</text>
           <text x="${pad}" y="${height-10}" fill="#5e6c7c" font-size="12">TU 1</text>
-          <text x="${width-pad}" y="${height-10}" fill="#5e6c7c" font-size="12" text-anchor="end">TU ${TOSSUP_COUNT}</text>
+          <text x="${width-pad}" y="${height-10}" fill="#5e6c7c" font-size="12" text-anchor="end">TU ${tossupCount()}</text>
         </svg>
       `;
     }
@@ -1988,10 +2083,11 @@
       const round = currentRound();
       if (id === 'tournamentName') app.tournamentName = value;
       if (id === 'roomNumber') app.roomNumber = value;
-      if (id === 'powerVal') app.pointValues.power = normalizePowerValue(value);
-      if (id === 'tossupVal') app.pointValues.tossup = Number(value);
-      if (id === 'bonusVal') app.pointValues.bonus = Number(value);
-      if (id === 'negVal') app.pointValues.neg = Number(value);
+      if (id === 'formatVal') {
+        applyTournamentFormat(value);
+        render();
+        return;
+      }
       if (id === 'team1Name') round.team1 = value;
       if (id === 'team2Name') round.team2 = value;
       for (let i = 1; i <= 4; i++) {
@@ -1999,6 +2095,22 @@
         if (id === `team2Player${i}`) round.players2[i-1] = value;
       }
       renderScoreboard(); renderCurrentQuestion(); renderSheet(); renderDynamicView(); renderLegends(); saveState();
+    }
+
+    function applyTournamentFormat(format) {
+      if (!FORMAT_RULES[format]) return;
+      app.format = format;
+      const rules = FORMAT_RULES[format];
+      app.pointValues = { power: rules.power, tossup: rules.tossup, bonus: rules.bonus, neg: rules.neg };
+      app.currentQuestion = clamp(app.currentQuestion, 1, rules.questions);
+      if (format === 'pace') {
+        app.rounds.forEach(round => round.rows.forEach(row => {
+          TEAM_KEYS.forEach(team => {
+            row[team].players = row[team].players.map(state => state === 'neg' ? 'none' : state);
+          });
+        }));
+      }
+      toast(`${rules.label} scoring selected: ${rules.questions} questions, ${rules.power}-point powers${rules.neg ? ', and -5 negs' : ', with no negs'}.`);
     }
 
     function handleNotesInput(event) {
@@ -2030,7 +2142,7 @@
 
     function copyNotes() {
       const lines = [];
-      app.rounds.forEach(round => round.rows.forEach(row => {
+      app.rounds.forEach(round => activeRows(round).forEach(row => {
         if ((row.notes || '').trim()) lines.push(`Round ${round.roundNumber}\tQuestion ${row.number}\t${row.notes.replace(/\r?\n/g, ' ')}`);
       }));
       if (!lines.length) return toast('No notes to copy.');
@@ -2097,7 +2209,7 @@
     function printableRoundTable(round) {
       const p1 = round.players1.map((p,i)=>p || `Player ${i+1}`);
       const p2 = round.players2.map((p,i)=>p || `Player ${i+1}`);
-      return `<table><thead><tr><th>TU</th>${p1.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Bonus</th><th>Total</th><th>Score</th><th>Score</th><th>Total</th><th>Bonus</th>${p2.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Notes</th></tr></thead><tbody>${round.rows.map(row => `<tr><td>${row.number}</td>${row.team1.players.map(s=>`<td>${stateLabel(s)}</td>`).join('')}<td>${row.team1.bonuses.map(b=>b?'Y':'N').join('-')}</td><td>${rowTotal(row,'team1')}</td><td>${cumulativeScore(round,'team1',row.number)}</td><td>${cumulativeScore(round,'team2',row.number)}</td><td>${rowTotal(row,'team2')}</td><td>${row.team2.bonuses.map(b=>b?'Y':'N').join('-')}</td>${row.team2.players.map(s=>`<td>${stateLabel(s)}</td>`).join('')}<td class="left">${escapeHtml(row.notes || '')}</td></tr>`).join('')}</tbody></table>`;
+      return `<table><thead><tr><th>TU</th>${p1.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Bonus</th><th>Total</th><th>Score</th><th>Score</th><th>Total</th><th>Bonus</th>${p2.map(p=>`<th>${escapeHtml(p)}</th>`).join('')}<th>Notes</th></tr></thead><tbody>${activeRows(round).map(row => `<tr${row.dead ? ' style="text-decoration:line-through;text-decoration-color:#ed282c"' : ''}><td>${row.number}${row.dead ? ' · Dead' : ''}</td>${row.team1.players.map(s=>`<td>${stateLabel(s)}</td>`).join('')}<td>${row.team1.bonuses.map(b=>b?'Y':'N').join('-')}</td><td>${rowTotal(row,'team1')}</td><td>${cumulativeScore(round,'team1',row.number)}</td><td>${cumulativeScore(round,'team2',row.number)}</td><td>${rowTotal(row,'team2')}</td><td>${row.team2.bonuses.map(b=>b?'Y':'N').join('-')}</td>${row.team2.players.map(s=>`<td>${stateLabel(s)}</td>`).join('')}<td class="left">${escapeHtml(row.notes || '')}</td></tr>`).join('')}</tbody></table>`;
     }
 
     function downloadBlob(blob, filename) {
@@ -2124,8 +2236,9 @@
     function escapeSvg(value) { return escapeHtml(value); }
 
     function wireEvents() {
-      ['tournamentName','roomNumber','powerVal','tossupVal','bonusVal','negVal','team1Name','team2Name','team1Player1','team1Player2','team1Player3','team1Player4','team2Player1','team2Player2','team2Player3','team2Player4'].forEach(id => document.getElementById(id).addEventListener('input', handleInput));
+      ['tournamentName','roomNumber','formatVal','team1Name','team2Name','team1Player1','team1Player2','team1Player3','team1Player4','team2Player1','team2Player2','team2Player3','team2Player4'].forEach(id => document.getElementById(id).addEventListener('input', handleInput));
       document.getElementById('questionNotes').addEventListener('input', handleNotesInput);
+      document.getElementById('deadQuestionToggle').addEventListener('change', event => setDeadQuestion(app.currentQuestion, event.target.checked));
       document.querySelectorAll('.chip[data-note]').forEach(chip => chip.addEventListener('click', () => addNotePrefix(chip.dataset.note)));
       document.getElementById('prevQuestionBtn').addEventListener('click', () => goQuestion(-1));
       document.getElementById('nextQuestionBtn').addEventListener('click', () => goQuestion(1));
@@ -2146,10 +2259,8 @@
       document.getElementById('importFile').addEventListener('change', e => importBackupJson(e.target.files[0]));
       document.getElementById('refreshRoundBtn').addEventListener('click', renderRoundSummary);
       document.getElementById('refreshTournamentBtn').addEventListener('click', renderTournamentSummary);
-      document.getElementById('jumpCurrentBtn').addEventListener('click', () => {
-        setActiveView('sheet');
-        setTimeout(() => document.querySelector('.active-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
-      });
+      document.getElementById('sheetPrevQuestionBtn').addEventListener('click', () => goSheetQuestion(-1));
+      document.getElementById('sheetNextQuestionBtn').addEventListener('click', () => goSheetQuestion(1));
       document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => setActiveView(tab.dataset.view)));
       window.addEventListener('beforeunload', () => saveState(true));
       document.addEventListener('keydown', handleKeyboard);
@@ -2159,14 +2270,24 @@
       const tag = document.activeElement?.tagName?.toLowerCase();
       const typing = ['input','textarea','select'].includes(tag);
       if (typing) return;
+      if (event.key === 'Enter') { event.preventDefault(); goQuestion(1); }
       if (event.key === 'ArrowRight') { event.preventDefault(); goQuestion(1); }
       if (event.key === 'ArrowLeft') { event.preventDefault(); goQuestion(-1); }
       const k = event.key.toLowerCase();
       if (k === 'p') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'power');
       if (k === 't') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'tossup');
-      if (k === 'n') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'neg');
+      if (k === 'n') {
+        if (app.format === 'pace') toast('Negs are not used in PACE.');
+        else setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'neg');
+      }
       if (k === '0' || k === 'backspace' || k === 'delete') setPlayerState(selectedTarget.team, selectedTarget.playerIndex, 'none');
       if (k === 'b') toggleNextBonus(selectedTarget.team);
+    }
+
+    function goSheetQuestion(delta) {
+      goQuestion(delta);
+      setActiveView('sheet');
+      setTimeout(() => document.querySelector('.active-row')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
     }
 
     wireEvents();
